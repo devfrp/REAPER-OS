@@ -1,0 +1,47 @@
+# Build artifacts
+build/
+release-artifacts/
+*.iso
+!Dockerfile.iso
+*.iso.xz
+*.sha256
+site/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+*.egg
+venv/
+.env
+.env.*
+
+# Generated files
+locale/
+scripts/i18n-helper.sh
+
+# Backup files
+*.bak
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+/var/log/reaper-os-*
+
+# Secrets
+*.pem
+*.key
+credentials
+.secrets

@@ -1,0 +1,41 @@
+
+# Python Dependencies for REAPER OS v1.0.0
+
+# GUI Installer (GTK4)
+PyGObject>=3.46.0
+
+# Web Framework
+Flask==2.3.3
+Flask-SocketIO==5.3.4
+flask-cors==4.0.0
+
+# Audio Processing
+numpy==1.24.3
+scipy==1.11.1
+
+# System & Process Management
+psutil==5.9.5
+requests==2.31.0
+
+# Data Formats
+pyyaml==6.0
+
+# Development & Testing
+pytest==7.4.0
+black==23.7.0
+pylint==2.17.5
+flake8==6.0.0
+
+# Environment
+python-dotenv==1.0.0
+
+# Mobile & Web Support
+python-socketio==5.9.0
+python-engineio==4.7.1
+
+# Logging & Monitoring
+colorama==0.4.6
+
+# Utilities
+click==8.1.6
+tqdm==4.65.0

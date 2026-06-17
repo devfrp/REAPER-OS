@@ -1,0 +1,76 @@
+name: Build ISO
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'installer/**'
+      - 'scripts/**'
+      - 'tools/**'
+      - 'config/**'
+      - 'reaper-config/**'
+      - 'wine-config/**'
+      - 'packages/**'
+      - 'Dockerfile.iso'
+      - '.github/workflows/build-iso.yml'
+  workflow_dispatch:
+
+jobs:
+  build-iso:
+    runs-on: ubuntu-latest
+    name: Build REAPER OS ISO
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get version
+        id: version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/}"
+          else
+            VERSION="dev-${GITHUB_SHA::7}"
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Building ISO version: ${VERSION}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build ISO via Docker
+        run: |
+          mkdir -p build/iso-output release-artifacts
+          docker build -t reaper-os-builder -f Dockerfile.iso .
+          set -o pipefail
+          docker run --privileged --rm \
+            -v "$PWD/build:/build/reaper-os/build" \
+            reaper-os-builder bash -c "
+              bash installer/build-iso-with-installers.sh
+            " 2>&1 | tee build.log
+          echo "=== Build output ==="
+          ls -lh build/iso-output/ 2>/dev/null || echo "(no ISO output)"
+          if ls build/iso-output/*.iso 1>/dev/null 2>&1; then
+            echo "Compressing ISO..."
+            sudo xz -9 -T0 build/iso-output/*.iso
+            sudo chmod 644 build/iso-output/*.iso.xz
+            ls -lh build/iso-output/
+          fi
+          cp -r build/iso-output/* release-artifacts/ 2>/dev/null || true
+          ls -lh release-artifacts/
+
+      - name: Upload ISO artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reaper-os-iso-${{ steps.version.outputs.version }}
+          path: |
+            release-artifacts/
+            build.log
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-failed
+          path: build.log

@@ -1,0 +1,63 @@
+site_name: REAPER OS v1.0.0
+site_description: Distribution Linux professionnelle pour la production musicale
+site_author: devfrp
+site_url: https://devfrp.github.io/REAPER-OS/
+
+theme:
+  name: material
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.top
+    - search.suggest
+    - search.highlight
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/lightbulb-outline
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/lightbulb
+        name: Switch to light mode
+
+markdown_extensions:
+  - admonition
+  - codehilite
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Documentation:
+    - Installation: INSTALLATION.md
+    - Getting Started: GETTING-STARTED.md
+    - Quick Start: QUICK-START.md
+    - Troubleshooting: TROUBLESHOOTING.md
+    - Best Practices: BEST-PRACTICES.md
+    - FAQ: FAQ.md
+  - Audio:
+    - Audio Interface Support: AUDIO-INTERFACE-SUPPORT.md
+    - Windows Audio Control Panels: WINDOWS-AUDIO-CONTROL-PANELS.md
+  - VST:
+    - VST Setup: VST-SETUP.md
+    - VST Windows Support: VST-WINDOWS-SUPPORT.md
+    - Wine Setup: WINE-SETUP.md
+  - Control:
+    - Control Protocols: CONTROL-PROTOCOLS.md
+    - REAPER Config: REAPER-CONFIG.md
+  - Project:
+    - Changelog: CHANGELOG.md
+    - Roadmap: ROADMAP.md
+    - Contributing: CONTRIBUTING.md
+    - Project Structure: PROJECT-STRUCTURE.md
+    - License: LICENSE
+
+repo_url: https://github.com/devfrp/REAPER-OS
+repo_name: devfrp/REAPER-OS
+
+copyright: Copyright &copy; 2026 REAPER OS Project

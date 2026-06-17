@@ -1,0 +1,154 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    name: Create GitHub Release
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine version
+        id: version
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/}"
+          VERSION="${VERSION#v}"
+          if [[ "$VERSION" =~ (alpha|beta|rc|dev|test) ]]; then
+            IS_PRERELEASE="true"
+          else
+            IS_PRERELEASE="false"
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "is_prerelease=${IS_PRERELEASE}" >> $GITHUB_OUTPUT
+          echo "=== RELEASE INFO ==="
+          echo "Version: ${VERSION}"
+          echo "Prerelease: ${IS_PRERELEASE}"
+          echo "Ref: ${{ github.ref }}"
+
+      - name: Create artifact directory
+        run: |
+          mkdir -p release-artifacts
+          echo "Artifact directory created"
+
+      - name: Prepare source release files
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          ARTIFACT="reaper-os-${VERSION}-source"
+          ARCHIVE_DIR="release-artifacts"
+          echo "Creating release package: ${ARTIFACT}"
+          tar --exclude='.git' \
+              --exclude='build' \
+              --exclude='.github' \
+              --exclude='*.iso' \
+              -czf "${ARCHIVE_DIR}/${ARTIFACT}.tar.gz" \
+              --transform "s,^,${ARTIFACT}/," \
+              .
+          echo "Source archive created"
+          ls -lh "${ARCHIVE_DIR}/"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build ISO via Docker
+        run: |
+          mkdir -p build/iso-output
+          docker build -t reaper-os-builder -f Dockerfile.iso .
+          set -o pipefail
+          docker run --privileged --rm \
+            -v "$PWD/build:/build/reaper-os/build" \
+            reaper-os-builder bash -c "
+              bash installer/build-iso-with-installers.sh
+            " 2>&1 | tee build.log
+          echo "=== Build output ==="
+          ls -lh build/iso-output/ 2>/dev/null || echo "(no ISO output)"
+          if ls build/iso-output/*.iso 1>/dev/null 2>&1; then
+            echo "Compressing ISO..."
+            sudo xz -9 -T0 build/iso-output/*.iso
+            sudo chmod 644 build/iso-output/*.iso.xz
+            ls -lh build/iso-output/
+          fi
+          cp -r build/iso-output/* release-artifacts/ 2>/dev/null || true
+          ls -lh release-artifacts/
+
+      - name: Generate checksums
+        run: |
+          cd release-artifacts
+          echo "Generating checksums..."
+          {
+            echo "# REAPER OS Release Checksums"
+            echo "# Generated: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+            echo "# Version: ${{ steps.version.outputs.version }}"
+            echo ""
+            echo "## SHA256 Checksums"
+            echo ""
+            for file in *.iso *.iso.xz *.sha256; do
+              if [ -f "$file" ]; then
+                sha256sum "$file"
+              fi
+            done
+          } > SHA256SUMS
+          echo "Checksums created:"
+          cat SHA256SUMS
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-failed
+          path: build.log
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          prerelease: ${{ steps.version.outputs.is_prerelease }}
+          files: |
+            release-artifacts/*
+          body: |
+            # REAPER OS v${{ steps.version.outputs.version }}
+
+            **Enterprise Audio Distribution for Linux — Based on Debian 13 (trixie)**
+
+            ## Installation
+
+            ```bash
+            # Decompress and write ISO to USB
+            xz -d reaper-os-debian-13-*.iso.xz
+            dd if=reaper-os-debian-13-*.iso of=/dev/sdX bs=4M status=progress
+
+            # Boot from USB and run:
+            sudo bash /root/INSTALL.sh
+            ```
+
+            ## What's Included
+            - REAPER DAW with JACK low-latency audio
+            - **ASNUX low-latency audio engine** (ASIO4ALL equivalent)
+            - Wine/Proton VST support
+            - AudioGridder isolation
+            - 38+ diagnostic and management tools
+            - 100+ audio interface support
+            - Real-time collaboration tools
+            - Professional mastering suite
+            - Mobile control app
+            - Complete documentation (French/English)
+
+            ## System Requirements
+            - 4GB RAM minimum (8GB recommended)
+            - 20GB disk space
+            - 64-bit x86 processor
+            - Audio interface with ALSA support
+
+            ## Documentation
+            - [README](../README.md) — Project overview
+            - [Troubleshooting](../docs/TROUBLESHOOTING.md) — Common issues and solutions
+            ---
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

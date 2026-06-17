@@ -1,0 +1,199 @@
+# Global ALSA Configuration for REAPER OS
+# Place in ~/.asoundrc for system-wide audio configuration
+
+# ==============================================================================
+# DEFAULT AUDIO DEVICE CONFIGURATION
+# Auto-detected by audio-interface-setup.sh
+# ==============================================================================
+
+# Set your interface card number here (0, 1, 2, etc.)
+# Find your card: aplay -l | grep "card"
+
+defaults.ctl.card 0
+defaults.pcm.card 0
+
+# ==============================================================================
+# PRIMARY AUDIO PATHS
+# ==============================================================================
+
+# Default playback (output)
+pcm.default {
+    type hw
+    card 0      # Change to your card number
+    device 0
+}
+
+# Default capture (input)
+pcm.default {
+    type hw
+    card 0      # Change to your card number
+    device 0
+}
+
+# Default mixer control
+ctl.default {
+    type hw
+    card 0
+}
+
+# ==============================================================================
+# JACK ROUTING (Professional Audio)
+# ==============================================================================
+
+pcm.jackdefault {
+    type jack
+    playback_ports {
+        0 system:playback_1
+        1 system:playback_2
+    }
+    capture_ports {
+        0 system:capture_1
+        1 system:capture_2
+    }
+}
+
+# ==============================================================================
+# INTERFACE-SPECIFIC CONFIGURATIONS
+# ==============================================================================
+
+# RME Interfaces
+pcm.rme_output {
+    type hw
+    card 0      # RME card number
+    device 0
+}
+
+pcm.rme_input {
+    type hw
+    card 0
+    device 0
+}
+
+# Universal Audio
+pcm.uad_output {
+    type hw
+    card 1      # UAD card number if different
+    device 0
+}
+
+pcm.uad_input {
+    type hw
+    card 1
+    device 0
+}
+
+# Focusrite
+pcm.focusrite_output {
+    type hw
+    card 2      # Focusrite card number if different
+    device 0
+}
+
+pcm.focusrite_input {
+    type hw
+    card 2
+    device 0
+}
+
+# ==============================================================================
+# PLUGIN CHAINS (Optional - Advanced)
+# ==============================================================================
+
+# Soft volume control for playback
+pcm.soft_volume {
+    type softvol
+    slave.pcm "default"
+    control.name "Master"
+    control.card 0
+    control.resolution 100
+}
+
+# PulseAudio bridge (if used)
+pcm.pulse {
+    type pulse
+}
+
+# ==============================================================================
+# AUDIO FORMAT SPECIFICATIONS
+# ==============================================================================
+
+# Sample rate: 48000 Hz (standard for music production)
+# Format: S32_LE (32-bit signed, little-endian)
+# Channels: 2 (stereo)
+
+pcm.!default {
+    type hw
+    card 0
+    device 0
+    rate 48000
+    format S32_LE
+    channels 2
+}
+
+# ==============================================================================
+# ALSA OUTPUT REDIRECTION
+# ==============================================================================
+
+# For applications that don't support JACK
+# Redirect to JACK via aconnect
+
+pcm.audiosys {
+    type hw
+    card 0
+    device 0
+    mmap_emulation true
+}
+
+# ==============================================================================
+# NOTES
+# ==============================================================================
+
+# To find your card number:
+#   aplay -l | grep "card"
+#
+# Example output:
+#   card 0: Babyface [RME Babyface], device 0: USB Audio [USB Audio]
+#                 ^ This is card 0
+#
+# To test a specific configuration:
+#   speaker-test -D default -t sine
+#   aplay -D hw:0,0 /path/to/test.wav
+#
+# For REAPER: Select "JACK" as audio device in preferences
+# JACK will automatically use this configuration
+#
+# Never edit ALSA config while REAPER, JACK, or other audio apps are running!
+
+# ==============================================================================
+# COMMON INTERFACE SETTINGS
+# ==============================================================================
+
+# If using Focusrite Scarlett 2i2 Gen3 as default:
+# Replace the defaults section with:
+#
+# defaults.ctl.card Scarlett
+# defaults.pcm.card Scarlett
+#
+# Then ALSA will auto-map to that interface
+
+# If using RME Babyface Pro:
+# defaults.ctl.card Babyface
+# defaults.pcm.card Babyface
+
+# If you have multiple interfaces:
+# Use aplay -l to see all of them
+# Then create separate pcm entries for each
+# And specify which one in REAPER/JACK
+
+# ==============================================================================
+# REAPER OS RECOMMENDED SETTINGS
+# ==============================================================================
+
+# For optimal REAPER/JACK/VST performance:
+#
+# 1. Set defaults to your PRIMARY interface
+# 2. Configure JACK with same card: jackd -d alsa -d hw:0
+# 3. Use 48000 Hz sample rate everywhere
+# 4. Use 256 samples buffer (5.3ms latency)
+# 5. Don't mix ALSA and PulseAudio - choose one
+#    (REAPER OS uses ALSA by default)

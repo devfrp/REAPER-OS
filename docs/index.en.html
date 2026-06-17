@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="REAPER OS — Linux distribution for professional music production. Based on Debian 13, REAPER DAW, JACK audio, Windows VST support.">
+    <meta name="keywords" content="REAPER, Linux, audio, DAW, music production, VST, JACK, Debian">
+    <meta name="author" content="devfrp">
+    <meta property="og:title" content="REAPER OS — Audio Linux Distribution">
+    <meta property="og:description" content="Professional Linux distribution for music production. REAPER DAW + JACK + Windows VST.">
+    <meta property="og:image" content="https://devfrp.github.io/REAPER-OS/og-image.png">
+    <meta property="og:url" content="https://devfrp.github.io/REAPER-OS/">
+    <meta name="twitter:card" content="summary_large_image">
+    <title>REAPER OS — Linux Distribution for Music Production</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%231f6feb'/%3E%3Ctext x='50' y='68' font-size='50' fill='white' text-anchor='middle' font-family='sans-serif' font-weight='bold'%3ER%3C/text%3E%3C/svg%3E">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #0d1117;
+            --bg-card: #161b22;
+            --bg-nav: #161b22;
+            --border: #30363d;
+            --border-hover: #58a6ff;
+            --text: #e6edf3;
+            --text-secondary: #8b949e;
+            --text-muted: #484f58;
+            --accent: #58a6ff;
+            --accent-bg: #1f6feb;
+            --green: #238636;
+            --green-hover: #2ea043;
+            --orange: #d29922;
+            --radius: 8px;
+            --shadow: 0 1px 3px rgba(0,0,0,.3);
+            --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            --mono: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+        }
+        body.light {
+            --bg: #f6f8fa;
+            --bg-card: #ffffff;
+            --bg-nav: #ffffff;
+            --border: #d0d7de;
+            --border-hover: #0969da;
+            --text: #1a1a2e;
+            --text-secondary: #57606a;
+            --text-muted: #8b949e;
+            --accent: #0969da;
+            --accent-bg: #0969da;
+            --green: #1a7f37;
+            --green-hover: #238636;
+            --orange: #9a6700;
+            --toggle-bg: #ffffff;
+        }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: var(--font);
+            line-height: 1.6;
+            color: var(--text);
+            background: var(--bg);
+            min-height: 100vh;
+        }
+        a { color: var(--accent); text-decoration: none; transition: color .2s; }
+        a:hover { text-decoration: underline; color: #79c0ff; }
+        img { max-width: 100%; }
+        .container { max-width: 1040px; margin: 0 auto; padding: 0 1.5rem; }
+
+        /* Nav */
+        nav {
+            background: rgba(22,27,34,0.95);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            padding: 0.75rem 0;
+            position: sticky; top: 36px; z-index: 100;
+        }
+        nav .container { display: flex; align-items: center; justify-content: space-between; }
+        nav .logo { font-weight: 800; font-size: 1.15rem; color: var(--text); }
+        nav .logo span { color: var(--accent); }
+        nav .links { display: flex; gap: 1.5rem; }
+        nav .links a { color: var(--text-secondary); font-size: 0.88rem; font-weight: 500; transition: color .2s; }
+        nav .links a:hover { color: var(--text); text-decoration: none; }
+        nav .links .portfolio-btn {
+            color: #a855f7;
+            background: rgba(168,85,247,0.1);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-weight: 500;
+        }
+        nav .links .portfolio-btn:hover {
+            background: rgba(168,85,247,0.2);
+            text-decoration: none;
+            color: #a855f7;
+        }
+        .nav-toggle { display: none; background: none; border: none; color: var(--text); font-size: 1.5rem; cursor: pointer; padding: 0.25rem; }
+
+        /* Hero */
+        .hero {
+            text-align: center;
+            padding: 5rem 0 4rem;
+            background: radial-gradient(ellipse at 50% 0%, var(--bg-card) 0%, var(--bg) 70%);
+            position: relative;
+            overflow: hidden;
+        }
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: 50%;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(31,111,235,0.08) 0%, transparent 70%);
+            transform: translate(-50%, 0);
+            pointer-events: none;
+        }
+        .hero .version-badge {
+            display: inline-block;
+            background: rgba(31,111,235,0.15);
+            color: var(--accent);
+            border: 1px solid rgba(88,166,255,0.3);
+            padding: 0.3rem 1rem;
+            border-radius: 999px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+        }
+        .hero h1 {
+            font-size: 2.8rem;
+            font-weight: 900;
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+        }
+        .hero h1 span { color: var(--accent); }
+        .hero p {
+            color: var(--text-secondary);
+            max-width: 640px;
+            margin: 1rem auto 2rem;
+            font-size: 1.1rem;
+        }
+        .hero .buttons { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+        .hero .btn {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            padding: 0.8rem 1.75rem; border-radius: var(--radius);
+            font-weight: 600; font-size: 0.95rem;
+            transition: all .2s;
+            border: none; cursor: pointer;
+        }
+        .hero .btn-primary { background: var(--green); color: #fff; }
+        .hero .btn-primary:hover { background: var(--green-hover); text-decoration: none; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(35,134,54,0.3); }
+        .hero .btn-secondary { background: transparent; color: var(--text); border: 1px solid var(--border); }
+        .hero .btn-secondary:hover { background: var(--bg-card); text-decoration: none; border-color: var(--text-secondary); }
+        .hero .btn-ghost { background: transparent; color: var(--text-secondary); }
+        .hero .btn-ghost:hover { color: var(--text); text-decoration: none; }
+
+        /* Section */
+        section { padding: 4rem 0; border-bottom: 1px solid #21262d; }
+        section:last-of-type { border-bottom: none; }
+        .section-title {
+            font-size: 1.6rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.01em;
+        }
+        .section-subtitle {
+            color: var(--text-secondary);
+            font-size: 1rem;
+            margin-bottom: 2.5rem;
+            max-width: 600px;
+        }
+        .section-title .accent { color: var(--accent); }
+        .section-title::before { content: "▎"; color: var(--accent); margin-right: 0.5rem; }
+
+        /* Specs */
+        .specs { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1rem; }
+        .spec {
+            text-align: center; padding: 1.5rem 1rem;
+            background: var(--bg-card); border-radius: var(--radius);
+            border: 1px solid var(--border); transition: border-color .2s, transform .2s;
+        }
+        .spec:hover { border-color: var(--border-hover); transform: translateY(-2px); }
+        .spec .value { font-size: 2rem; font-weight: 900; color: var(--accent); line-height: 1.2; }
+        .spec .label { font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.25rem; }
+
+        /* Features grid */
+        .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; }
+        .feature {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 1.5rem;
+            transition: border-color .2s, transform .2s;
+        }
+        .feature:hover { border-color: var(--border-hover); transform: translateY(-2px); }
+        .feature .icon { font-size: 1.5rem; margin-bottom: 0.75rem; }
+        .feature h3 { font-size: 1rem; font-weight: 700; margin-bottom: 0.4rem; }
+        .feature p { font-size: 0.88rem; color: var(--text-secondary); line-height: 1.5; }
+
+        /* Audio stack diagram */
+        .stack {
+            display: flex; align-items: center; justify-content: center;
+            gap: 0.5rem; flex-wrap: wrap;
+            padding: 2rem; background: var(--bg-card);
+            border: 1px solid var(--border); border-radius: var(--radius);
+        }
+        .stack-item {
+            background: #21262d; border: 1px solid var(--border);
+            border-radius: 6px; padding: 0.6rem 1rem;
+            font-size: 0.85rem; font-weight: 600; white-space: nowrap;
+        }
+        .stack-item.active { border-color: var(--accent); background: rgba(88,166,255,0.1); color: var(--accent); }
+        .stack-arrow { color: var(--text-muted); font-size: 1.2rem; font-weight: 300; }
+
+        /* Cards grid */
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; }
+        .card {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 1.25rem;
+            transition: border-color .2s;
+        }
+        .card:hover { border-color: var(--border-hover); }
+        .card .icon { font-size: 1.5rem; margin-bottom: 0.5rem; }
+        .card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 0.4rem; }
+        .card p { font-size: 0.88rem; color: var(--text-secondary); line-height: 1.5; }
+
+        /* Badge list */
+        .badge-list { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+        .badge-list span {
+            background: #21262d; border: 1px solid var(--border);
+            border-radius: 999px; padding: 0.3rem 0.8rem;
+            font-size: 0.8rem; color: var(--text-secondary);
+            transition: border-color .2s, color .2s;
+        }
+        .badge-list span:hover { border-color: var(--accent); color: var(--text); }
+
+        /* Tool list */
+        .tool-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.6rem; }
+        .tool-tag {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 6px; padding: 0.5rem 0.8rem;
+            font-size: 0.82rem; color: var(--text-secondary);
+            display: flex; align-items: center; gap: 0.4rem;
+            font-family: var(--mono); transition: border-color .2s, color .2s;
+        }
+        .tool-tag:hover { border-color: var(--accent); color: var(--text); }
+
+        /* Protocol table */
+        .proto-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        .proto-table th { text-align: left; padding: 0.75rem 1rem; color: var(--text-secondary); font-weight: 600; border-bottom: 1px solid var(--border); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .proto-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #21262d; }
+        .proto-table tr:hover td { background: rgba(255,255,255,0.02); }
+        .proto-table .check { color: var(--green); }
+        .proto-table .latency { color: var(--accent); font-family: var(--mono); font-size: 0.85rem; }
+
+        /* Doc list */
+        .doc-list { columns: 2; column-gap: 2rem; list-style: none; }
+        .doc-list li { break-inside: avoid; margin-bottom: 0.3rem; }
+        .doc-list a { font-size: 0.88rem; display: block; padding: 0.2rem 0; }
+        .doc-list a::before { content: "📄 "; font-size: 0.7rem; }
+
+        /* Documentation browser */
+        .docs-layout {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 2rem;
+            align-items: start;
+        }
+        .docs-sidebar {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1rem;
+            position: sticky;
+            top: 80px;
+            max-height: calc(100vh - 120px);
+            overflow-y: auto;
+        }
+        .docs-cat {
+            margin-bottom: 1.25rem;
+        }
+        .docs-cat-title {
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--accent);
+            margin-bottom: 0.5rem;
+            padding-bottom: 0.3rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .docs-cat a {
+            display: block;
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+            padding: 0.3rem 0.5rem;
+            border-radius: 4px;
+            text-decoration: none;
+            transition: all .15s;
+            cursor: pointer;
+        }
+        .docs-cat a:hover, .docs-cat a.active {
+            color: var(--text);
+            background: rgba(88,166,255,0.1);
+            text-decoration: none;
+        }
+        .docs-content {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 2rem;
+            min-height: 400px;
+            font-size: 0.9rem;
+            line-height: 1.7;
+        }
+        .docs-content h1 { font-size: 1.4rem; margin: 1.5rem 0 0.8rem; color: var(--text); }
+        .docs-content h1:first-child { margin-top: 0; }
+        .docs-content h2 { font-size: 1.15rem; margin: 1.3rem 0 0.6rem; color: var(--accent); }
+        .docs-content h3 { font-size: 1rem; margin: 1rem 0 0.4rem; }
+        .docs-content p { margin-bottom: 0.8rem; color: var(--text-secondary); }
+        .docs-content ul, .docs-content ol { margin: 0.5rem 0 0.8rem 1.5rem; color: var(--text-secondary); }
+        .docs-content li { margin-bottom: 0.3rem; }
+        .docs-content code {
+            background: #21262d;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 0.15rem 0.4rem;
+            font-family: var(--mono);
+            font-size: 0.85rem;
+        }
+        .docs-content pre {
+            background: #0d1117;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1rem;
+            overflow-x: auto;
+            margin: 0.8rem 0;
+            font-size: 0.82rem;
+        }
+        .docs-content pre code {
+            background: none;
+            border: none;
+            padding: 0;
+            font-size: 0.82rem;
+        }
+        .docs-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 0.8rem 0;
+            font-size: 0.85rem;
+        }
+        .docs-content th, .docs-content td {
+            border: 1px solid var(--border);
+            padding: 0.5rem 0.8rem;
+            text-align: left;
+        }
+        .docs-content th {
+            background: #21262d;
+            color: var(--text);
+            font-weight: 600;
+        }
+        .docs-content td { color: var(--text-secondary); }
+        .docs-content a { color: var(--accent); }
+        .docs-content blockquote {
+            border-left: 3px solid var(--accent);
+            padding: 0.3rem 1rem;
+            margin: 0.8rem 0;
+            color: var(--text-secondary);
+            background: rgba(88,166,255,0.05);
+            border-radius: 0 4px 4px 0;
+        }
+        .docs-welcome {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: var(--text-secondary);
+        }
+        .docs-welcome h3 { font-size: 1.2rem; color: var(--text); margin-bottom: 0.5rem; }
+        .docs-welcome p { max-width: 500px; margin: 0 auto; }
+        .docs-loading {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-secondary);
+        }
+
+        @media (max-width: 768px) {
+            .docs-layout { grid-template-columns: 1fr; }
+            .docs-sidebar { position: static; max-height: none; }
+        }
+
+        /* Download section */
+        .download-options { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+        .download-card {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 2rem;
+            text-align: center; transition: border-color .2s, transform .2s;
+        }
+        .download-card:hover { border-color: var(--border-hover); transform: translateY(-2px); }
+        .download-card .icon { font-size: 2.5rem; margin-bottom: 1rem; }
+        .download-card h3 { font-size: 1.15rem; font-weight: 700; margin-bottom: 0.5rem; }
+        .download-card p { font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 1.25rem; }
+        .download-card .btn {
+            display: inline-flex; align-items: center; gap: 0.4rem;
+            padding: 0.7rem 1.5rem; border-radius: var(--radius);
+            font-weight: 600; font-size: 0.9rem;
+            background: var(--accent-bg); color: #fff;
+            transition: all .2s; border: none; cursor: pointer;
+        }
+        .download-card .btn:hover { background: #388bfd; text-decoration: none; transform: translateY(-1px); }
+
+        /* Footer */
+        footer {
+            text-align: center; padding: 2.5rem 0;
+            color: var(--text-muted); font-size: 0.85rem;
+            border-top: 1px solid #21262d;
+        }
+        footer a { color: var(--accent); }
+        footer .social { display: flex; justify-content: center; gap: 1.5rem; margin-bottom: 1rem; }
+        footer .social a { color: var(--text-secondary); font-size: 0.9rem; }
+        footer .social a:hover { color: var(--text); }
+
+        /* GitHub corner */
+        .github-corner { position: fixed; top: 36px; right: 0; z-index: 200; }
+        .github-corner svg { fill: var(--accent-bg); color: #fff; width: 60px; height: 60px; }
+
+        /* Animations */
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .animate { animation: fadeUp 0.6s ease-out both; }
+        .delay-1 { animation-delay: 0.1s; }
+        .delay-2 { animation-delay: 0.2s; }
+        .delay-3 { animation-delay: 0.3s; }
+
+        /* Code */
+        code {
+            background: #21262d; border: 1px solid var(--border);
+            border-radius: 4px; padding: 0.15rem 0.4rem;
+            font-family: var(--mono); font-size: 0.85rem;
+        }
+        pre {
+            background: #161b22; border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 1rem;
+            overflow-x: auto; font-size: 0.85rem; line-height: 1.5;
+        }
+        pre code { background: none; border: none; padding: 0; }
+
+        .theme-toggle {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text);
+            font-size: 1.2rem;
+            cursor: pointer;
+            z-index: 300;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        .theme-toggle:hover {
+            transform: scale(1.1);
+            border-color: var(--accent);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero h1 { font-size: 2rem; }
+            .hero p { font-size: 1rem; }
+            nav .links { display: none; }
+            .nav-toggle { display: block; }
+            nav .links.open { display: flex; flex-direction: column; position: absolute; top: 100%; left: 0; right: 0; background: var(--bg-nav); border-bottom: 1px solid var(--border); padding: 1rem; }
+            .download-options { grid-template-columns: 1fr; }
+            .doc-list { columns: 1; }
+            .specs { grid-template-columns: repeat(2, 1fr); }
+            .proto-table { font-size: 0.8rem; }
+            .github-corner { display: none; }
+        }
+        @media (max-width: 480px) {
+            .hero h1 { font-size: 1.6rem; }
+            .specs { grid-template-columns: 1fr 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<div style="position:fixed;top:0;left:0;right:0;z-index:9999;background:#1a1a2e;padding:6px 20px;display:flex;justify-content:flex-end;gap:10px;font-family:Inter,sans-serif;font-size:13px;border-bottom:1px solid #2a2a4a;">
+  <a href="index.html" style="color:#e1e1e8;text-decoration:none;padding:4px 10px;border-radius:6px;background:#2a2a4a;">🇫🇷 Français</a>
+  <a href="index.en.html" style="color:#e1e1e8;text-decoration:none;padding:4px 10px;border-radius:6px;background:#2a2a4a;">🇬🇧 English</a>
+</div>
+
+<a href="https://github.com/devfrp/REAPER-OS" class="github-corner" aria-label="View on GitHub">
+    <svg viewBox="0 0 250 250" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.4,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor"></path>
+    </svg>
+</a>
+
+<nav>
+    <div class="container">
+        <a href="#" class="logo">REAPER <span>OS</span></a>
+        <button class="nav-toggle" onclick="document.querySelector('nav .links').classList.toggle('open')" aria-label="Menu">☰</button>
+        <div class="links">
+            <a href="#features">Features</a>
+            <a href="#specs">Stats</a>
+            <a href="#install">Installation</a>
+            <a href="#docs">Documentation</a>
+            <a href="#tools">Tools</a>
+            <a href="#tech-specs">Specifications</a>
+            <a href="#faq">FAQ</a>
+            <a href="https://github.com/devfrp/REAPER-OS">GitHub</a>
+            <a class="portfolio-btn" href="https://devfrp.github.io" target="_blank">View my portfolio</a>
+        </div>
+    </div>
+</nav>
+
+<section class="hero">
+    <div class="container">
+        <div class="version-badge">v1.0.0 · Debian 13 (Trixie)</div>
+        <h1 class="animate">An audio workstation<br><span>ready to use on Linux</span></h1>
+        <p class="animate delay-1">REAPER OS is a complete Linux distribution based on Debian 13 (Trixie), designed exclusively for professional music production. It integrates REAPER DAW as the system shell, JACK audio with less than 6ms latency, full support for 100+ audio interfaces (RME, UAD, Focusrite, MOTU...), Wine/Proton emulation for your favorite Windows VST plugins, and over 38 diagnostic and configuration tools. All-in-one offline ISO or minimal online ISO — choose your workflow.</p>
+        <div class="buttons animate delay-2">
+            <a href="https://github.com/devfrp/REAPER-OS/releases/latest" class="btn btn-primary">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1a.5.5 0 0 1 .5.5v11.793l3.146-3.147a.5.5 0 0 1 .708.708l-4 4a.5.5 0 0 1-.708 0l-4-4a.5.5 0 0 1 .708-.708L7.5 13.293V1.5A.5.5 0 0 1 8 1z" fill="currentColor"/></svg>
+                Download ISO
+            </a>
+            <a href="#features" class="btn btn-secondary">Discover</a>
+            <a href="https://github.com/devfrp/REAPER-OS" class="btn btn-ghost">GitHub →</a>
+        </div>
+    </div>
+</section>
+
+<section id="specs">
+    <div class="container">
+        <h2 class="section-title">REAPER OS in <span class="accent">numbers</span></h2>
+        <p class="section-subtitle">A complete, tested and documented distribution</p>
+        <div class="specs">
+            <div class="spec"><div class="value" data-count="6">0</div><div class="label">ms JACK latency</div></div>
+            <div class="spec"><div class="value" data-count="100">0</div><div class="label">audio interfaces</div></div>
+            <div class="spec"><div class="value" data-count="38">0</div><div class="label">diagnostic tools</div></div>
+            <div class="spec"><div class="value" data-count="25">0</div><div class="label">documentation pages</div></div>
+            <div class="spec"><div class="value" data-count="2">0</div><div class="label">ISO variants</div></div>
+        </div>
+    </div>
+</section>
+
+<section id="features">
+    <div class="container">
+        <h2 class="section-title">Key <span class="accent">Features</span></h2>
+        <p class="section-subtitle">Everything you need to produce music, ready to use</p>
+
+        <div class="features">
+            <div class="feature">
+                <div class="icon">🎛️</div>
+                <h3>REAPER as main interface</h3>
+                <p>Automatic launch at startup. Used as system shell with integrated Dolphin.</p>
+            </div>
+            <div class="feature">
+                <div class="icon">🧩</div>
+                <h3>100% Windows VST</h3>
+                <p>Two methods: direct Wine/Proton (3-5ms) or isolated AudioGridder (1-3ms). All your favorite plugins.</p>
+            </div>
+            <div class="feature">
+                <div class="icon">🎧</div>
+                <h3>100+ audio interfaces</h3>
+                <p>Automatic detection for RME, UAD, Focusrite, Behringer, MOTU, PreSonus, Roland, etc.</p>
+            </div>
+            <div class="feature">
+                <div class="icon">🎮</div>
+                <h3>All control protocols</h3>
+                <p>MCU, Eucon, HUI, OSC, Generic MIDI, MIDI Learn, Keyboard — full compatibility.</p>
+            </div>
+            <div class="feature">
+                <div class="icon">⚡</div>
+                <h3>Professional audio stack</h3>
+                <p>JACK server &lt;6ms, optional PREEMPT_RT kernel, absolute audio priority.</p>
+            </div>
+            <div class="feature">
+                <div class="icon">🔧</div>
+                <h3>38+ management tools</h3>
+                <p>Diagnostics, audio configuration, controller testing, VST management, backup, and more.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section>
+    <div class="container">
+        <h2 class="section-title">Audio <span class="accent">Stack</span></h2>
+        <p class="section-subtitle">Optimized audio workflow from input to output</p>
+        <div class="stack">
+            <span class="stack-item">Audio Input</span>
+            <span class="stack-arrow">→</span>
+            <span class="stack-item active">JACK</span>
+            <span class="stack-arrow">→</span>
+            <span class="stack-item active">REAPER</span>
+            <span class="stack-arrow">→</span>
+            <span class="stack-item">VST Plugins</span>
+            <span class="stack-arrow">→</span>
+            <span class="stack-item active">JACK</span>
+            <span class="stack-arrow">→</span>
+            <span class="stack-item">Audio Output</span>
+        </div>
+
+        <h3 style="font-size:1rem;font-weight:700;margin-top:2rem;margin-bottom:1rem;">Supported control protocols</h3>
+        <div style="overflow-x:auto;">
+            <table class="proto-table">
+                <thead>
+                    <tr><th>Protocol</th><th>Controllers</th><th>Latency</th><th>Support</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><strong>MCU</strong></td><td>Behringer X-Touch, Mackie, Soundcraft</td><td class="latency">&lt;1ms</td><td><span class="check">✅ Native</span></td></tr>
+                    <tr><td><strong>Eucon</strong></td><td>Avid S3/S4/S6, Euphonix</td><td class="latency">&lt;1ms</td><td><span class="check">✅ Native</span></td></tr>
+                    <tr><td><strong>HUI</strong></td><td>Mackie HUI, Behringer FCB1010</td><td class="latency">&lt;1ms</td><td><span class="check">✅ MIDI Learn</span></td></tr>
+                    <tr><td><strong>OSC</strong></td><td>iPad (Lemur), Mobile, Network</td><td class="latency">5-50ms</td><td><span class="check">✅ Native</span></td></tr>
+                    <tr><td><strong>Generic MIDI</strong></td><td>All MIDI controllers</td><td class="latency">&lt;1ms</td><td><span class="check">✅ Native</span></td></tr>
+                    <tr><td><strong>Keyboard</strong></td><td>USB/Bluetooth Keyboard</td><td class="latency">Instant</td><td><span class="check">✅ Native</span></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+<section id="install">
+    <div class="container">
+        <h2 class="section-title">Simple <span class="accent">Installation</span></h2>
+        <p class="section-subtitle">Choose the variant that suits you</p>
+        <div class="download-options">
+            <div class="download-card">
+                <div class="icon">💿</div>
+                <h3>Offline ISO</h3>
+                <p>Everything included in the ISO — REAPER, Wine, tools, docs, drivers. No network connection required.</p>
+                <a href="https://github.com/devfrp/REAPER-OS/releases/latest" class="btn">Download</a>
+            </div>
+            <div class="download-card">
+                <div class="icon">🌐</div>
+                <h3>Online ISO</h3>
+                <p>Minimal ISO + package download on first boot. Smaller, requires an Internet connection.</p>
+                <a href="https://github.com/devfrp/REAPER-OS/releases/latest" class="btn">Download</a>
+            </div>
+        </div>
+        <div style="margin-top:2rem;padding:1.25rem;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);">
+            <h3 style="font-size:1rem;font-weight:700;margin-bottom:0.75rem;">Quick installation</h3>
+            <pre><code># 1. Create a bootable USB drive
+sudo dd if=reaper-os-*.iso of=/dev/sdX bs=4M status=progress
+
+# 2. Boot from USB
+# 3. Follow the installer (language, location, disk)
+# 4. REAPER OS starts automatically after installation</code></pre>
+        </div>
+    </div>
+</section>
+
+<section id="tech-specs">
+    <div class="container">
+        <h2 class="section-title">Technical <span class="accent">Specifications</span></h2>
+        <p class="section-subtitle">System requirements and distribution details</p>
+        <div class="specs">
+            <div class="spec"><div class="value">Debian 13</div><div class="label">System base (Trixie)</div></div>
+            <div class="spec"><div class="value">5.10+</div><div class="label">Minimum Linux kernel</div></div>
+            <div class="spec"><div class="value">4 GB</div><div class="label">Minimum RAM (8 GB recommended)</div></div>
+            <div class="spec"><div class="value">20 GB</div><div class="label">Offline ISO disk space</div></div>
+            <div class="spec"><div class="value">x86_64</div><div class="label">Processor architecture</div></div>
+            <div class="spec"><div class="value">PREEMPT_RT</div><div class="label">Real-time kernel (optional)</div></div>
+        </div>
+
+        <h3 style="font-size:1rem;font-weight:700;margin-top:2.5rem;margin-bottom:1rem;">Included audio packages</h3>
+        <div class="badge-list">
+            <span>REAPER DAW v7</span>
+            <span>JACK Audio Server</span>
+            <span>Wine + yabridge</span>
+            <span>PipeWire</span>
+            <span>PulseAudio</span>
+            <span>ALSA utils</span>
+            <span>FFADO (FireWire)</span>
+            <span>a2jmidid</span>
+            <span>calf plugins</span>
+            <span>LSP plugins</span>
+            <span>Dragonfly Reverb</span>
+            <span>Zita utilities</span>
+            <span>jack_mixer</span>
+            <span>patchage</span>
+        </div>
+
+        <h3 style="font-size:1rem;font-weight:700;margin-top:2rem;margin-bottom:1rem;">Recommended hardware requirements</h3>
+        <table class="proto-table" style="margin-top:0.5rem;">
+            <thead><tr><th>Component</th><th>Minimum</th><th>Recommended</th></tr></thead>
+            <tbody>
+                <tr><td>CPU</td><td>4 cores @ 2.0 GHz</td><td>8+ cores @ 3.5 GHz</td></tr>
+                <tr><td>RAM</td><td>4 GB DDR4</td><td>16 GB DDR4</td></tr>
+                <tr><td>Storage</td><td>20 GB HDD</td><td>60 GB NVMe SSD</td></tr>
+                <tr><td>Network</td><td>Optional</td><td>Gigabit Ethernet</td></tr>
+                <tr><td>Audio</td><td>Integrated sound card</td><td>External audio interface (RME, UAD, Focusrite...)</td></tr>
+                <tr><td>GPU</td><td>Integrated Intel/AMD</td><td>Dedicated graphics card (optional)</td></tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section id="tools">
+    <div class="container">
+        <h2 class="section-title">Included <span class="accent">Tools</span></h2>
+        <p class="section-subtitle">Over 38 tools to diagnose, configure and optimize your studio</p>
+        <div class="tool-grid">
+            <span class="tool-tag">reaper-diagnostics</span>
+            <span class="tool-tag">audio-config-manager</span>
+            <span class="tool-tag">test-controllers</span>
+            <span class="tool-tag">vst-manager</span>
+            <span class="tool-tag">package-manager</span>
+            <span class="tool-tag">performance-tuner</span>
+            <span class="tool-tag">backup-restore</span>
+            <span class="tool-tag">system-info</span>
+            <span class="tool-tag">hardware-matrix</span>
+            <span class="tool-tag">cloud-sync</span>
+            <span class="tool-tag">video-sync-tools</span>
+            <span class="tool-tag">preset-manager</span>
+            <span class="tool-tag">professional-templates</span>
+            <span class="tool-tag">project-version-control</span>
+            <span class="tool-tag">collaboration-server</span>
+            <span class="tool-tag">mastering-suite</span>
+            <span class="tool-tag">system-dashboard</span>
+        </div>
+    </div>
+</section>
+
+<section id="docs">
+    <div class="container">
+        <h2 class="section-title">Complete <span class="accent">Documentation</span></h2>
+        <p class="section-subtitle">40+ documents organized by category — click to display content</p>
+        <div class="docs-layout">
+            <aside class="docs-sidebar" id="docs-sidebar"></aside>
+            <div class="docs-content" id="docs-content">
+                <div class="docs-welcome">
+                    <h3>📚 REAPER OS Documentation</h3>
+                    <p>Select a document in the left menu to display its content.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section id="faq">
+    <div class="container">
+        <h2 class="section-title">FAQ</h2>
+        <p class="section-subtitle">Frequently asked questions about REAPER OS</p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:1.5rem;">
+            <div class="card">
+                <h3>Is REAPER OS free?</h3>
+                <p>The OS is completely free and open source (GPL v3). REAPER DAW requires a license ($60 / $225), but works in evaluation mode without limitations. Everything else is free.</p>
+            </div>
+            <div class="card">
+                <h3>Will my Windows VST plugins work?</h3>
+                <p>Yes. REAPER OS integrates pre-configured Wine + yabridge. Two methods: direct execution (3-5ms latency) or isolated AudioGridder (1-3ms). Most Windows VST2/VST3 plugins are compatible.</p>
+            </div>
+            <div class="card">
+                <h3>How to install REAPER OS in dual-boot with Windows?</h3>
+                <p>The installer automatically detects Windows and offers dual-boot. Shrink your Windows partition first, then let the installer create the necessary Linux partitions.</p>
+            </div>
+            <div class="card">
+                <h3>Can I use my usual audio interface?</h3>
+                <p>Most likely. REAPER OS supports 100+ audio interfaces: RME (Fireface, Babyface), UAD (Apollo), Focusrite (Scarlett, Clarett), MOTU, PreSonus, Behringer, Roland... Detection is automatic.</p>
+            </div>
+            <div class="card">
+                <h3>What is the difference between Offline and Online ISO?</h3>
+                <p>The Offline ISO (~20 GB) contains everything: REAPER, Wine, plugins, tools. The Online ISO (~3 GB) is a minimal installer that downloads packages on first boot. Offline recommended for installation without Internet.</p>
+            </div>
+            <div class="card">
+                <h3>How to update REAPER OS?</h3>
+                <p>Via the standard Debian package manager: <code>sudo apt update && sudo apt upgrade</code>. Major updates are announced on the project's GitHub. The included <code>package-manager</code> tool facilitates audio package management.</p>
+            </div>
+            <div class="card">
+                <h3>Which control surfaces are compatible?</h3>
+                <p>All major protocols: MCU (Behringer X-Touch), Eucon (Avid S3/S6), HUI (Mackie), OSC (iPad/tablets), Generic MIDI and keyboard control. Automatic configuration via <code>test-controllers</code>.</p>
+            </div>
+            <div class="card">
+                <h3>Is REAPER OS suitable for beginners?</h3>
+                <p>Yes. The built-in getting started guide and the 25+ documentation documents guide you step by step. The REAPER interface is pre-configured with ready-to-use professional templates.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<footer>
+    <div class="container">
+        <div class="social">
+            <a href="https://github.com/devfrp/REAPER-OS">GitHub</a>
+            <a href="https://github.com/devfrp/REAPER-OS/releases">Releases</a>
+            <a href="https://github.com/devfrp/REAPER-OS/issues">Issues</a>
+            <a href="https://github.com/devfrp/REAPER-OS/discussions">Discussions</a>
+        </div>
+        <p><a href="https://github.com/devfrp/REAPER-OS">REAPER OS</a> — Distributed under GPL v3 license</p>
+        <p style="margin-top:0.25rem;">Designed with ❤️ for audio production on Linux</p>
+    </div>
+</footer>
+
+<script>
+// Theme toggle
+(function() {
+    var toggle = document.getElementById('themeToggle');
+    var saved = localStorage.getItem('reaperos-theme');
+    if (saved === 'light') {
+        document.body.classList.add('light');
+        toggle.textContent = '☀️';
+    }
+    toggle.addEventListener('click', function() {
+        document.body.classList.toggle('light');
+        var isLight = document.body.classList.contains('light');
+        toggle.textContent = isLight ? '☀️' : '🌙';
+        localStorage.setItem('reaperos-theme', isLight ? 'light' : 'dark');
+    });
+})();
+// Documentation browser
+const DOCS_BASE = 'https://raw.githubusercontent.com/devfrp/REAPER-OS/main';
+const DOCS_INDEX = [
+    { cat: 'Getting Started', items: [
+        { name: 'Complete Installation', file: 'docs/INSTALLATION.md' },
+        { name: 'Download and Installation', file: 'docs/DOWNLOAD-INSTALLATION.md' },
+        { name: 'Getting Started Guide', file: 'GETTING-STARTED.md' },
+        { name: 'Quick Start', file: 'QUICK-START.md' },
+    ]},
+    { cat: 'Audio', items: [
+        { name: 'Audio — Quick Start', file: 'docs/AUDIO-QUICK-START.md' },
+        { name: 'Audio Interface Support', file: 'docs/AUDIO-INTERFACE-SUPPORT.md' },
+    ]},
+    { cat: 'Control & MIDI', items: [
+        { name: 'Control Protocols', file: 'docs/CONTROL-PROTOCOLS.md' },
+        { name: 'Control — Quick Start', file: 'docs/CONTROL-QUICK-START.md' },
+    ]},
+    { cat: 'VST & Plugins', items: [
+        { name: 'VST Configuration', file: 'docs/VST-SETUP.md' },
+        { name: 'Windows VST Support', file: 'docs/VST-WINDOWS-SUPPORT.md' },
+        { name: 'Native Linux VST', file: 'docs/VST-NATIVE-EXPLANATION.md' },
+        { name: 'Wine Configuration', file: 'docs/WINE-SETUP.md' },
+        { name: 'Windows Control Panels', file: 'docs/WINDOWS-AUDIO-CONTROL-PANELS.md' },
+    ]},
+    { cat: 'Configuration', items: [
+        { name: 'REAPER Configuration', file: 'docs/REAPER-CONFIG.md' },
+        { name: 'Troubleshooting', file: 'docs/TROUBLESHOOTING.md' },
+        { name: 'FAQ', file: 'docs/FAQ.md' },
+        { name: 'Best Practices', file: 'BEST-PRACTICES.md' },
+    ]},
+    { cat: 'Development', items: [
+        { name: 'CI/CD Pipeline', file: 'docs/CI-CD-PIPELINE.md' },
+        { name: 'GitHub Actions Status', file: 'docs/GITHUB-ACTIONS-STATUS.md' },
+        { name: 'Contributing', file: 'docs/CONTRIBUTING.md' },
+        { name: 'Project Structure', file: 'docs/PROJECT-STRUCTURE.md' },
+        { name: 'Roadmap', file: 'ROADMAP.md' },
+        { name: 'Changelog', file: 'CHANGELOG.md' },
+    ]},
+];
+
+function buildDocSidebar() {
+    const sidebar = document.getElementById('docs-sidebar');
+    if (!sidebar) return;
+    let html = '';
+    DOCS_INDEX.forEach(cat => {
+        html += '<div class="docs-cat">';
+        html += '<div class="docs-cat-title">' + cat.cat + '</div>';
+        cat.items.forEach(item => {
+            html += '<a data-file="' + item.file + '" data-name="' + item.name + '">' + item.name + '</a>';
+        });
+        html += '</div>';
+    });
+    sidebar.innerHTML = html;
+    sidebar.querySelectorAll('a').forEach(a => {
+        a.addEventListener('click', () => {
+            sidebar.querySelectorAll('a').forEach(el => el.classList.remove('active'));
+            a.classList.add('active');
+            loadDoc(a.dataset.file, a.dataset.name);
+        });
+    });
+}
+
+function parseMarkdown(md) {
+    let h = md;
+    h = h.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    h = h.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+    h = h.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+    h = h.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+    h = h.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+    h = h.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    h = h.replace(/\*(.+?)\*/g, '<em>$1</em>');
+    h = h.replace(/`([^`]+)`/g, '<code>$1</code>');
+    h = h.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+    h = h.replace(/^> (.*)/gm, '<blockquote>$1</blockquote>');
+    h = h.replace(/^---$/gm, '<hr>');
+    h = h.replace(/^- (.+)$/gm, '<li>$1</li>');
+    h = h.replace(/(<li>[\s\S]*?<\/li>)/g, '<ul>$1</ul>');
+    h = h.replace(/<\/ul>\s*<ul>/g, '');
+    h = h.replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>');
+    h = h.replace(/(<li>[\s\S]*?<\/li>)/g, function(m) { return '<ol>' + m + '</ol>'; });
+    h = h.replace(/<\/ol>\s*<ol>/g, '');
+    h = h.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+    h = h.replace(/^(?!<[a-z/])(.+)$/gm, '<p>$1</p>');
+    h = h.replace(/<p>\s*<\/p>/g, '');
+    return h;
+}
+
+async function loadDoc(file, name) {
+    const content = document.getElementById('docs-content');
+    const cacheKey = 'reaperos-doc-' + file;
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+        try {
+            const parsed = JSON.parse(cached);
+            if (Date.now() - parsed.t < 86400000) {
+                content.innerHTML = parseMarkdown(parsed.d);
+                return;
+            }
+        } catch(e) {}
+    }
+    content.innerHTML = '<div class="docs-loading">Loading <strong>' + name + '</strong>...</div>';
+    try {
+        const res = await fetch(DOCS_BASE + '/' + file);
+        if (!res.ok) throw new Error('Not found');
+        const md = await res.text();
+        localStorage.setItem(cacheKey, JSON.stringify({ t: Date.now(), d: md }));
+        content.innerHTML = parseMarkdown(md);
+    } catch (e) {
+        content.innerHTML = '<div class="docs-welcome"><h3>⚠️ Error</h3><p>Unable to load <strong>' + name + '</strong>. <a href="' + DOCS_BASE + '/' + file + '" target="_blank">Open on GitHub</a></p></div>';
+    }
+}
+
+buildDocSidebar();
+
+// Animated counters
+function animateCounters() {
+    const counters = document.querySelectorAll('[data-count]');
+    counters.forEach(el => {
+        const target = parseInt(el.dataset.count, 10);
+        const duration = 1500;
+        const start = performance.now();
+        function update(now) {
+            const elapsed = now - start;
+            const progress = Math.min(elapsed / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            const current = Math.floor(eased * target);
+            el.textContent = current < target ? current + '+' : target + '+';
+            if (progress < 1) requestAnimationFrame(update);
+        }
+        requestAnimationFrame(update);
+    });
+}
+
+// Intersection Observer for counters
+const specsSection = document.querySelector('#specs');
+if (specsSection) {
+    const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                animateCounters();
+                observer.disconnect();
+            }
+        });
+    }, { threshold: 0.3 });
+    observer.observe(specsSection);
+}
+
+// Close nav on link click (mobile)
+document.querySelectorAll('nav .links a').forEach(a => {
+    a.addEventListener('click', () => {
+        document.querySelector('nav .links').classList.remove('open');
+    });
+});
+</script>
+
+<button class="theme-toggle" id="themeToggle" title="Toggle theme" aria-label="Toggle light/dark theme">🌙</button>
+
+</body>
+</html>

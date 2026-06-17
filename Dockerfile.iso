@@ -1,0 +1,23 @@
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    debootstrap \
+    xorriso \
+    genisoimage \
+    isolinux \
+    syslinux-common \
+    syslinux-utils \
+    grub-pc-bin \
+    grub-efi-amd64-bin \
+    sudo \
+    ca-certificates \
+    curl \
+    wget \
+    git \
+    xz-utils \
+    build-essential \
+    dpkg-dev \
+    devscripts \
+    && rm -rf /var/lib/apt/lists/*
+RUN echo "root ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+COPY . /build/reaper-os
+WORKDIR /build/reaper-os

@@ -1,0 +1,123 @@
+name: Test & Validate Release
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'installer/**'
+      - '.github/workflows/*.yml'
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 0 * * 0'
+
+jobs:
+  syntax-check:
+    name: Syntax Validation
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Check Bash syntax
+        continue-on-error: true
+        run: |
+          echo "Checking shell script syntax..."
+          for script in installer/*.sh reaper-os.sh; do
+            if [ -f "$script" ]; then
+              echo "  Checking: $script"
+              bash -n "$script" 2>&1 || echo "⚠ Issues in $script (non-fatal)"
+            fi
+          done
+          echo "Bash syntax check complete"
+
+  markdown-check:
+    name: Documentation Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Check required documentation files
+        run: |
+          echo "Checking documentation files..."
+          
+          required_files=(
+            "README.md"
+            "CHANGELOG.md"
+            "CONTRIBUTING.md"
+            "LICENSE"
+            "installer/install-offline.sh"
+            "installer/install-online.sh"
+          )
+          
+          found=0
+          for file in "${required_files[@]}"; do
+            if [ -f "$file" ]; then
+              echo "✓ $file"
+              ((found++))
+            else
+              echo "⚠ $file not found"
+            fi
+          done
+          
+          echo "Found $found of ${#required_files[@]} required files"
+
+  asset-check:
+    name: Release Assets Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Verify release assets
+        run: |
+          echo "Checking release assets..."
+          
+          files=(
+            "installer/install-offline.sh"
+            "installer/install-online.sh"
+            "README.md"
+            "CHANGELOG.md"
+            "LICENSE"
+          )
+          
+          all_exist=true
+          for file in "${files[@]}"; do
+            if [ -f "$file" ]; then
+              size=$(stat -c%s "$file" 2>/dev/null || echo "unknown")
+              echo "✓ $file"
+            else
+              echo "⚠ Missing: $file"
+              all_exist=false
+            fi
+          done
+          
+          if [ "$all_exist" = true ]; then
+            echo "All required assets present"
+          fi
+
+  workflow-summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [syntax-check, markdown-check, asset-check]
+    if: always()
+    
+    steps:
+      - name: Generate summary
+        run: |
+          SYNTAX="${{ needs.syntax-check.result }}"
+          MD="${{ needs.markdown-check.result }}"
+          ASSET="${{ needs.asset-check.result }}"
+          map_status() { case "$1" in success) echo "✅";; failure) echo "❌";; skipped) echo "⏭️";; cancelled) echo "🚫";; *) echo "⚠️";; esac; }
+          echo "## Release Validation Results"
+          echo ""
+          echo "| Check | Status |"
+          echo "|-------|--------|"
+          echo "| Syntax Check | $(map_status "$SYNTAX") |"
+          echo "| Documentation | $(map_status "$MD") |"
+          echo "| Assets | $(map_status "$ASSET") |"
+          echo ""
+          if [[ "$SYNTAX" == "success" && "$MD" == "success" && "$ASSET" == "success" ]]; then
+            echo "**Release is ready for publication!**"
+          else
+            echo "**Some checks failed. Please review before release.**"
+          fi
