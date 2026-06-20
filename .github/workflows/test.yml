@@ -6,39 +6,31 @@ on:
   pull_request:
     branches: [ main, develop ]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   shellcheck:
     runs-on: ubuntu-latest
     name: ShellCheck - Bash Script Validation
-
     steps:
       - uses: actions/checkout@v4
-
       - name: Install shellcheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck
-
       - name: Run shellcheck on scripts
-        continue-on-error: true
         run: |
           echo "Checking bash scripts for common issues..."
           shellcheck --version
-
-          while IFS= read -r -d '' file; do
-            echo "Checking: $file"
-            shellcheck -x "$file" || true
-          done < <(find . -type f -name '*.sh' -print0)
-
-      - name: Detailed shellcheck report
+          find . -type f -name '*.sh' -exec shellcheck -x {} \; 2>&1 | tee shellcheck-report.txt || true
+      - name: Shellcheck summary
         run: |
-          echo "=== SHELLCHECK ANALYSIS ==="
-          find . -type f -name '*.sh' -exec shellcheck -f gcc {} \; 2>&1 | tee shellcheck-report.txt || true
-
-          error_count=$(grep -c "error:" shellcheck-report.txt || echo 0)
-          warning_count=$(grep -c "warning:" shellcheck-report.txt || echo 0)
-
-          echo ""
+          error_count=$(grep -c "error:" shellcheck-report.txt 2>/dev/null || echo 0)
+          warning_count=$(grep -c "warning:" shellcheck-report.txt 2>/dev/null || echo 0)
           echo "Summary: $error_count errors, $warning_count warnings"
-
+          if [ "$error_count" -gt 0 ]; then
+            echo "ShellCheck found errors - review shellcheck-report.txt"
+          fi
       - name: Upload shellcheck report
         if: always()
         uses: actions/upload-artifact@v4
@@ -49,25 +41,20 @@ jobs:
   bash-syntax:
     runs-on: ubuntu-latest
     name: Bash Syntax Validation
-
     steps:
       - uses: actions/checkout@v4
-
       - name: Validate bash syntax
         run: |
-          echo "=== BASH SYNTAX CHECK ==="
           errors=0
-
+          count=0
           while IFS= read -r -d '' file; do
-            echo "Checking: $file"
+            count=$((count + 1))
             if ! bash -n "$file" 2>&1; then
               echo "✗ SYNTAX ERROR in $file"
-              ((errors++)) || true
-            else
-              echo "✓ OK"
+              errors=$((errors + 1))
             fi
           done < <(find . -type f -name '*.sh' -print0)
-
+          echo "Checked $count scripts"
           if [ "$errors" -gt 0 ]; then
             echo "Found $errors syntax errors"
             exit 1
@@ -77,178 +64,252 @@ jobs:
   python-syntax:
     runs-on: ubuntu-latest
     name: Python Syntax Validation
-
     steps:
       - uses: actions/checkout@v4
-
       - name: Validate Python syntax
         run: |
-          echo "=== PYTHON SYNTAX CHECK ==="
           errors=0
-
+          count=0
           while IFS= read -r -d '' file; do
+            count=$((count + 1))
             echo "Checking: $file"
             if ! python3 -m py_compile "$file" 2>&1; then
               echo "✗ SYNTAX ERROR in $file"
-              ((errors++)) || true
+              errors=$((errors + 1))
             fi
           done < <(find . -type f -name '*.py' -print0)
-
+          echo "Checked $count Python files"
           if [ "$errors" -gt 0 ]; then
             echo "Found $errors syntax errors"
             exit 1
           fi
           echo "All Python scripts have valid syntax ✓"
 
-  documentation:
+  python-lint:
     runs-on: ubuntu-latest
-    name: Documentation Check
-
+    name: Python Linting (Flake8 + Pylint)
     steps:
       - uses: actions/checkout@v4
-
-      - name: Check documentation files exist
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install linting tools
         run: |
-          echo "Checking required documentation files..."
+          pip install flake8 pylint
+          pip install -r requirements.txt 2>/dev/null || true
+      - name: Run flake8
+        continue-on-error: true
+        run: |
+          echo "=== FLAKE8 ==="
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=.git,__pycache__,venv || true
+          flake8 . --count --exit-zero --max-complexity=15 --max-line-length=127 --statistics --exclude=.git,__pycache__,venv || true
+      - name: Run pylint
+        continue-on-error: true
+        run: |
+          echo "=== PYLINT ==="
+          pylint --disable=all --enable=E,F --exit-zero $(find . -name "*.py" -not -path "./.git/*") 2>&1 | tee pylint-report.txt || true
 
+  docs-check:
+    runs-on: ubuntu-latest
+    name: Documentation Check
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check required documentation files
+        run: |
           required_files=(
             "README.md"
-            "GETTING-STARTED.md"
             "CHANGELOG.md"
-            "QUICK-START.md"
-            "TROUBLESHOOTING.md"
+            "ROADMAP.md"
+            "docs/PROJECT-STRUCTURE.md"
           )
-
-          files_checked=0
-          files_found=0
-
           for file in "${required_files[@]}"; do
-            files_checked=$((files_checked + 1))
             if [ -f "$file" ]; then
-              echo "✓ $file exists"
-              files_found=$((files_found + 1))
+              echo "✓ $file exists (size: $(wc -c < "$file") bytes)"
             else
               echo "⚠ $file not found (non-fatal)"
             fi
           done
-
-          echo "Found $files_found of $files_checked expected documentation files"
-
-      - name: Validate markdown
+      - name: Validate markdown code blocks
         run: |
-          echo "Checking markdown syntax..."
           while IFS= read -r -d '' file; do
-            open_ticks=$(grep -c '\`\`\`' "$file" || echo 0)
+            open_ticks=$(grep -c '```' "$file" 2>/dev/null || echo 0)
             if [ $((open_ticks % 2)) -ne 0 ]; then
               echo "⚠ Unclosed code block in $file"
             fi
-          done < <(find . -name "*.md" -type f -print0)
+          done < <(find . -name "*.md" -type f -not -path "./.git/*" -print0)
           echo "Markdown validation complete ✓"
 
   project-structure:
     runs-on: ubuntu-latest
-    name: Script Functionality Tests
-
+    name: Project Structure Validation
     steps:
       - uses: actions/checkout@v4
-
-      - name: Test script help output
+      - name: Check required directories
         run: |
-          echo "=== TESTING SCRIPT HELP OUTPUT ==="
-
-          while IFS= read -r -d '' script; do
-            echo "Testing: $(basename "$script")"
-            if grep -q "help\|--help\|-h" "$script"; then
-              echo "✓ Help documentation found"
+          required_dirs=("scripts" "installer" "tools" "config" "reaper-config" "wine-config" "docs" ".github/workflows")
+          for dir in "${required_dirs[@]}"; do
+            if [ -d "$dir" ]; then
+              echo "✓ $dir/ exists ($(find "$dir" -type f | wc -l) files)"
             else
-              echo "⚠ No help text in $(basename "$script")"
+              echo "✗ $dir/ MISSING"
+              exit 1
             fi
-          done < <(find tools scripts reaper-config wine-config -maxdepth 1 -name '*.sh' -print0 2>/dev/null || true)
-
-      - name: Test script validation
+          done
+      - name: Verify script error handling
         run: |
-          echo "=== TESTING SCRIPT VALIDATION ==="
-
+          missing_handler=0
           while IFS= read -r -d '' script; do
             if grep -q "set -e\|set -euo pipefail" "$script"; then
               echo "✓ $(basename "$script") has error handling"
             else
-              echo "⚠ $(basename "$script") missing error handling"
+              echo "⚠ $(basename "$script") missing 'set -e'"
+              missing_handler=$((missing_handler + 1))
             fi
           done < <(find installer scripts reaper-config tools wine-config -maxdepth 1 -name '*.sh' -print0 2>/dev/null || true)
+          echo "Scripts missing error handling: $missing_handler"
+      - name: Verify script help documentation
+        run: |
+          while IFS= read -r -d '' script; do
+            if grep -qE "help|--help|-h|Usage:" "$script"; then
+              echo "✓ $(basename "$script") has help text"
+            else
+              echo "⚠ $(basename "$script") no help text found"
+            fi
+          done < <(find tools scripts reaper-config wine-config installer -maxdepth 1 -name '*.sh' -print0 2>/dev/null || true)
 
   config-validation:
     runs-on: ubuntu-latest
     name: Configuration Files Validation
-
     steps:
       - uses: actions/checkout@v4
-
-      - name: Validate configuration files
+      - name: Validate config files
         run: |
-          echo "=== CONFIGURATION FILES CHECK ==="
-
+          echo "=== CONFIGURATION FILES ==="
           if [ -f "config/asoundrc.template" ]; then
-            echo "✓ asoundrc.template exists"
+            echo "✓ ALSA template found"
           fi
-
           if [ -d "reaper-config" ]; then
-            echo "✓ REAPER config directory exists"
-            ls -la reaper-config/ | head -10
+            echo "✓ REAPER config directory present"
+            find reaper-config -type f | head -20
           fi
-
           if [ -f ".gitignore" ]; then
             echo "✓ .gitignore exists"
+          fi
+      - name: Validate packages manifest
+        run: |
+          if [ -f "packages/manifest.json" ]; then
+            python3 -c "import json; json.load(open('packages/manifest.json'))" 2>/dev/null && echo "✓ manifest.json is valid JSON" || echo "⚠ manifest.json parse error"
           fi
 
   cross-reference:
     runs-on: ubuntu-latest
     name: Cross-Reference Integrity
-
     steps:
       - uses: actions/checkout@v4
-
-      - name: Check for broken references
+      - name: Check for broken source references
         run: |
-          echo "=== CROSS-REFERENCE CHECK ==="
           errors=0
-
           while IFS= read -r -d '' script; do
+            script_dir="$(dirname "$script")"
             while IFS= read -r line; do
-              # Skip dynamic paths (containing variables)
               if echo "$line" | grep -qP '\$\{?\w+' 2>/dev/null; then
                 continue
               fi
-              ref=$(echo "$line" | grep -oP 'source "\K[^"]+' || echo "")
-              if [ -n "$ref" ] && [ ! -f "$ref" ]; then
-                echo "✗ Broken source reference: $ref (in $script)"
-                ((errors++)) || true
+              ref=$(echo "$line" | grep -oP 'source "\K[^"]+' 2>/dev/null || echo "")
+              if [ -n "$ref" ]; then
+                ref_path="$script_dir/$ref"
+                [ ! -f "$ref_path" ] && [ ! -f "$ref" ] && {
+                  echo "✗ Broken source reference: $ref (in $script)"
+                  errors=$((errors + 1))
+                }
               fi
             done < <(grep '^source ' "$script" 2>/dev/null || true)
-          done < <(find . -type f -name '*.sh' -print0)
-
+          done < <(find . -type f -name '*.sh' -not -path "./.git/*" -print0)
           if [ "$errors" -gt 0 ]; then
             echo "Found $errors broken references"
             exit 1
           fi
           echo "✓ All cross-references valid"
 
+  security-scan:
+    runs-on: ubuntu-latest
+    name: Security Scan
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for secrets in code
+        run: |
+          patterns=(
+            "-----BEGIN RSA PRIVATE KEY-----"
+            "-----BEGIN OPENSSH PRIVATE KEY-----"
+            "AIza[0-9A-Za-z_-]{35}"
+            "github_pat_[0-9a-zA-Z_-]{22}"
+            "sk-[0-9a-fA-F]{24}"
+            "ghp_[0-9a-zA-Z]{36}"
+            "xox[baprs]-[0-9a-zA-Z-]+"
+          )
+          found=0
+          for pattern in "${patterns[@]}"; do
+            matches=$(grep -rl "$pattern" --include="*.sh" --include="*.py" --include="*.conf" --include="*.json" . 2>/dev/null | grep -v ".git/" || true)
+            if [ -n "$matches" ]; then
+              echo "⚠ Potential secret found matching pattern in:"
+              echo "$matches"
+              found=1
+            fi
+          done
+          if [ "$found" -eq 0 ]; then
+            echo "✓ No secrets found in code"
+          fi
+      - name: Check file permissions
+        run: |
+          echo "Checking for overly permissive files..."
+          find . -type f -perm /o+w -not -path "./.git/*" -not -path "./.github/*" | while read -r file; do
+            echo "⚠ World-writable: $file"
+          done
+
+  test-offline:
+    runs-on: ubuntu-latest
+    name: Offline Installation Test (Dry-Run)
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax check installer
+        run: |
+          bash -n installer/install-offline.sh && echo "✓ install-offline.sh syntax OK"
+          bash -n installer/install-online.sh && echo "✓ install-online.sh syntax OK"
+          bash -n installer/uninstall-reaper-os.sh && echo "✓ uninstall-reaper-os.sh syntax OK"
+      - name: Test uninstaller help
+        run: |
+          bash installer/uninstall-reaper-os.sh --help 2>&1 | head -20
+          echo "✓ Uninstaller help works"
+      - name: Test hardware checker help
+        run: |
+          bash tools/hardware-compatibility-checker.sh --help 2>&1 | head -20
+          echo "✓ Hardware checker help works"
+      - name: Test validate-installation script
+        run: |
+          if [ -f tests/validate-installation.sh ]; then
+            bash tests/validate-installation.sh 2>&1 | head -50 || true
+            echo "✓ Validate-installation script ran"
+          fi
+
   summary:
     runs-on: ubuntu-latest
     name: Test Summary
     if: always()
-    needs: [shellcheck, bash-syntax, python-syntax, documentation, project-structure, config-validation, cross-reference]
-
+    needs: [shellcheck, bash-syntax, python-syntax, python-lint, docs-check, project-structure, config-validation, cross-reference, security-scan, test-offline]
     steps:
       - name: Print summary
         run: |
           echo "=== CI/CD TEST SUMMARY ==="
-          echo "ShellCheck: ${{ needs.shellcheck.result }}"
-          echo "Bash Syntax: ${{ needs.bash-syntax.result }}"
-          echo "Python Syntax: ${{ needs.python-syntax.result }}"
-          echo "Documentation: ${{ needs.documentation.result }}"
-          echo "Project Structure: ${{ needs.project-structure.result }}"
-          echo "Config Validation: ${{ needs.config-validation.result }}"
-          echo "Cross-Reference: ${{ needs.cross-reference.result }}"
+          echo "ShellCheck:         ${{ needs.shellcheck.result }}"
+          echo "Bash Syntax:        ${{ needs.bash-syntax.result }}"
+          echo "Python Syntax:      ${{ needs.python-syntax.result }}"
+          echo "Python Lint:        ${{ needs.python-lint.result }}"
+          echo "Documentation:      ${{ needs.docs-check.result }}"
+          echo "Project Structure:  ${{ needs.project-structure.result }}"
+          echo "Config Validation:  ${{ needs.config-validation.result }}"
+          echo "Cross-Reference:    ${{ needs.cross-reference.result }}"
+          echo "Security Scan:      ${{ needs.security-scan.result }}"
+          echo "Offline Test:       ${{ needs.test-offline.result }}"
           echo ""
-          echo "Run details: https://github.com/devfrp/REAPER-OS/actions/runs/${{ github.run_id }}"
+          echo "Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

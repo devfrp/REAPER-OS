@@ -2,190 +2,149 @@
 """
 REAPER OS System Monitoring Dashboard
 Flask web application for real-time system monitoring
+Uses the shared dashboard.html template
 """
 
 from flask import Flask, render_template, jsonify
 import psutil
-import json
 import subprocess
+import os
 from datetime import datetime
 from threading import Thread
 import time
 
+TEMPLATE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates")
+
 app = Flask(__name__)
+app.template_folder = TEMPLATE_DIR
+
 
 class SystemMonitor:
     def __init__(self):
-        self.metrics = {
-            "cpu": {"usage": 0, "cores": psutil.cpu_count()},
-            "memory": {"total": 0, "used": 0, "percent": 0},
-            "disk": {"total": 0, "used": 0, "percent": 0},
-            "jack": {"status": "offline", "latency": 0, "load": 0},
-            "audio": {"devices": []},
-            "processes": [],
-            "temperature": {"cpu": 0}
-        }
-        self.history = {
-            "cpu": [],
-            "memory": [],
-            "disk": []
-        }
-    
+        self.metrics = {}
+        self.history = []
+
     def update(self):
-        """Update all metrics"""
         try:
-            # CPU
-            self.metrics["cpu"]["usage"] = psutil.cpu_percent(interval=1)
-            
-            # Memory
+            cpu_pct = psutil.cpu_percent(interval=1)
+            cpu_count = psutil.cpu_count()
+            physical = psutil.cpu_count(logical=False)
+            freq = psutil.cpu_freq()
             mem = psutil.virtual_memory()
-            self.metrics["memory"]["total"] = self._format_bytes(mem.total)
-            self.metrics["memory"]["used"] = self._format_bytes(mem.used)
-            self.metrics["memory"]["percent"] = mem.percent
-            
-            # Disk
+            swap = psutil.swap_memory()
             disk = psutil.disk_usage('/')
-            self.metrics["disk"]["total"] = self._format_bytes(disk.total)
-            self.metrics["disk"]["used"] = self._format_bytes(disk.used)
-            self.metrics["disk"]["percent"] = disk.percent
-            
-            # JACK status
-            self.update_jack_status()
-            
-            # Audio devices
-            self.update_audio_devices()
-            
-            # Top processes
-            self.update_top_processes()
-            
-            # Temperature
-            self.update_temperature()
-            
-            # Store history
-            self._store_history()
-            
+            load_avg = os.getloadavg()
+            uptime = time.time() - psutil.boot_time()
+            kernel = subprocess.run(["uname", "-r"], capture_output=True, text=True).stdout.strip()
+            temp_val = None
+            try:
+                temps = psutil.sensors_temperatures()
+                temp_val = temps.get('coretemp', [{}])[0].current if temps else None
+            except Exception:
+                pass
+
+            jack_running = False
+            try:
+                jack_running = subprocess.run(
+                    ["systemctl", "is-active", "--quiet", "jackd"],
+                    capture_output=True
+                ).returncode == 0
+            except Exception:
+                pass
+
+            audio_devices = []
+            try:
+                r = subprocess.run(["aplay", "-l"], capture_output=True, text=True, timeout=5)
+                for line in r.stdout.split('\n'):
+                    if 'card' in line.lower() and ':' in line:
+                        pts = line.split(':', 1)
+                        if len(pts) > 1:
+                            audio_devices.append({"name": pts[1].strip(), "type": "playback"})
+            except Exception:
+                pass
+
+            proc_data = {"cpu": [], "memory": [], "audio": []}
+            for p in psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_percent']):
+                try:
+                    d = p.as_dict(attrs=['pid', 'name', 'cpu_percent', 'memory_percent'])
+                    proc_data["cpu"].append(dict(d))
+                    proc_data["memory"].append(dict(d))
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    continue
+            proc_data["cpu"].sort(key=lambda x: x.get('cpu_percent', 0), reverse=True)
+            proc_data["memory"].sort(key=lambda x: x.get('memory_percent', 0), reverse=True)
+
+            net_io = psutil.net_io_counters()
+            ifaces = {}
+            try:
+                stats = psutil.net_if_stats()
+                for iface, st in stats.items():
+                    ifaces[iface] = {"status": "up" if st.isup else "down", "speed": f"{st.speed} Mbps" if st.speed else "N/A"}
+            except Exception:
+                pass
+
+            gpu_info = {"name": "Unknown", "load": None, "memory_used": None, "memory_total": None, "temperature": None}
+            try:
+                r = subprocess.run(["lspci", "-v", "-nn"], capture_output=True, text=True, timeout=10)
+                for line in r.stdout.split('\n'):
+                    if 'VGA' in line or '3D' in line or 'Display' in line:
+                        gpu_info["name"] = line.split(':', 2)[-1].strip()
+                        break
+            except Exception:
+                pass
+
+            self.metrics = {
+                "timestamp": datetime.now().isoformat(),
+                "cpu": {
+                    "percent": cpu_pct, "cores": cpu_count, "physical_cores": physical,
+                    "freq_mhz": freq.current if freq else 0, "load_avg": list(load_avg)
+                },
+                "memory": {
+                    "total_gb": mem.total / (1024**3), "used_gb": mem.used / (1024**3),
+                    "percent": mem.percent, "swap_gb": swap.total / (1024**3),
+                    "swap_used_gb": swap.used / (1024**3)
+                },
+                "disk": {
+                    "total_gb": disk.total / (1024**3), "used_gb": disk.used / (1024**3),
+                    "free_gb": disk.free / (1024**3), "percent": disk.percent
+                },
+                "audio": {
+                    "jack_running": jack_running, "latency_estimate": None,
+                    "sample_rate": None, "buffer_size": None, "xruns": None, "dsp_load": None
+                },
+                "audio_devices": audio_devices,
+                "alsa": {"config_found": os.path.exists("/etc/asound.conf") or os.path.exists(os.path.expanduser("~/.asoundrc")), "cards": 0, "devices": 0},
+                "gpu": gpu_info,
+                "docker": {"running": False, "containers": []},
+                "processes": proc_data,
+                "network": {
+                    "bytes_sent": net_io.bytes_sent, "bytes_recv": net_io.bytes_recv,
+                    "packets_sent": net_io.packets_sent, "packets_recv": net_io.packets_recv,
+                    "interfaces": ifaces, "connections": []
+                },
+                "system": {
+                    "temperature": temp_val, "uptime_seconds": uptime,
+                    "kernel": kernel,
+                    "boot_time": datetime.fromtimestamp(psutil.boot_time()).isoformat()
+                }
+            }
+
+            self.history.append({
+                "timestamp": datetime.now().isoformat(),
+                "cpu": {"percent": cpu_pct},
+                "memory": {"percent": mem.percent, "swap_gb": swap.total / (1024**3), "swap_used_gb": swap.used / (1024**3)},
+                "disk": {"percent": disk.percent}
+            })
+            if len(self.history) > 1440:
+                self.history = self.history[-1440:]
         except Exception as e:
             print(f"Error updating metrics: {e}")
-    
-    def update_jack_status(self):
-        """Check JACK status"""
-        try:
-            result = subprocess.run(
-                ["jack_lsp"],
-                capture_output=True,
-                timeout=2
-            )
-            
-            if result.returncode == 0:
-                self.metrics["jack"]["status"] = "online"
-                # Get latency
-                try:
-                    latency_result = subprocess.run(
-                        ["bash", "-c", "jack_latency 2>/dev/null | grep -i latency | head -1"],
-                        capture_output=True,
-                        text=True,
-                        timeout=2
-                    )
-                    if latency_result.stdout:
-                        self.metrics["jack"]["latency"] = latency_result.stdout.strip()
-                except:
-                    pass
-            else:
-                self.metrics["jack"]["status"] = "offline"
-        
-        except:
-            self.metrics["jack"]["status"] = "offline"
-    
-    def update_audio_devices(self):
-        """Get audio devices"""
-        try:
-            result = subprocess.run(
-                ["bash", "-c", "aplay -l | grep 'card'"],
-                capture_output=True,
-                text=True,
-                timeout=2
-            )
-            
-            devices = []
-            for line in result.stdout.split('\n'):
-                if line.strip():
-                    devices.append(line.strip())
-            
-            self.metrics["audio"]["devices"] = devices
-        
-        except:
-            self.metrics["audio"]["devices"] = []
-    
-    def update_top_processes(self):
-        """Get top CPU consuming processes"""
-        try:
-            processes = []
-            for proc in psutil.process_iter(['pid', 'name', 'cpu_percent']):
-                try:
-                    pinfo = proc.as_dict(attrs=['pid', 'name', 'cpu_percent'])
-                    if pinfo['cpu_percent'] and pinfo['cpu_percent'] > 0.1:
-                        processes.append(pinfo)
-                except:
-                    pass
-            
-            # Sort by CPU and take top 5
-            processes.sort(key=lambda x: x['cpu_percent'], reverse=True)
-            self.metrics["processes"] = processes[:5]
-        
-        except Exception as e:
-            print(f"Error getting processes: {e}")
-    
-    def update_temperature(self):
-        """Get CPU temperature if available"""
-        try:
-            temps = psutil.sensors_temperatures()
-            if 'coretemp' in temps:
-                cpu_temp = temps['coretemp'][0].current
-                self.metrics["temperature"]["cpu"] = f"{cpu_temp}°C"
-        except:
-            self.metrics["temperature"]["cpu"] = "N/A"
-    
-    def _store_history(self):
-        """Store metrics in history for graphing"""
-        timestamp = datetime.now().isoformat()
-        
-        # Keep last 60 datapoints
-        self.history["cpu"].append({
-            "time": timestamp,
-            "value": self.metrics["cpu"]["usage"]
-        })
-        if len(self.history["cpu"]) > 60:
-            self.history["cpu"].pop(0)
-        
-        self.history["memory"].append({
-            "time": timestamp,
-            "value": self.metrics["memory"]["percent"]
-        })
-        if len(self.history["memory"]) > 60:
-            self.history["memory"].pop(0)
-        
-        self.history["disk"].append({
-            "time": timestamp,
-            "value": self.metrics["disk"]["percent"]
-        })
-        if len(self.history["disk"]) > 60:
-            self.history["disk"].pop(0)
-    
-    @staticmethod
-    def _format_bytes(bytes_size):
-        """Format bytes to human readable"""
-        for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
-            if bytes_size < 1024:
-                return f"{bytes_size:.1f}{unit}"
-            bytes_size /= 1024
-        return f"{bytes_size:.1f}PB"
 
-# Initialize monitor
+
 monitor = SystemMonitor()
 
-# Background update thread
+
 def update_thread():
-    """Background thread to update metrics"""
     while True:
         try:
             monitor.update()
@@ -193,79 +152,54 @@ def update_thread():
         except Exception as e:
             print(f"Update thread error: {e}")
 
+
 @app.route('/')
 def index():
-    """Main dashboard page"""
     return render_template('dashboard.html')
+
 
 @app.route('/api/metrics')
 def api_metrics():
-    """API endpoint for current metrics"""
-    return jsonify(monitor.metrics)
+    return jsonify(monitor.metrics if monitor.metrics else {"status": "initializing"})
+
 
 @app.route('/api/history')
 def api_history():
-    """API endpoint for historical data"""
     return jsonify(monitor.history)
 
-@app.route('/api/jack-latency')
-def api_jack_latency():
-    """Get JACK latency info"""
-    try:
-        result = subprocess.run(
-            ["bash", "-c", "jack_latency 2>/dev/null"],
-            capture_output=True,
-            text=True,
-            timeout=2
-        )
-        return jsonify({"latency": result.stdout.strip()})
-    except:
-        return jsonify({"latency": "Unknown"})
 
-@app.route('/api/system-info')
-def api_system_info():
-    """Get system information"""
-    try:
-        uptime_result = subprocess.run(
-            ["uptime", "-p"],
-            capture_output=True,
-            text=True
-        )
-        
-        return jsonify({
-            "uptime": uptime_result.stdout.strip(),
-            "kernel": subprocess.run(
-                ["uname", "-r"],
-                capture_output=True,
-                text=True
-            ).stdout.strip(),
-            "cpu_cores": psutil.cpu_count(),
-            "boot_time": datetime.fromtimestamp(psutil.boot_time()).isoformat()
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)})
+@app.route('/api/alerts')
+def api_alerts():
+    if not monitor.metrics:
+        return jsonify([])
+    return jsonify([])
 
-@app.route('/api/network')
-def api_network():
-    """Get network stats"""
-    try:
-        net = psutil.net_if_stats()
-        interfaces = {}
-        for iface, stats in net.items():
-            interfaces[iface] = {
-                "status": "up" if stats.isup else "down",
-                "speed": f"{stats.speed} Mbps"
-            }
-        return jsonify(interfaces)
-    except Exception as e:
-        return jsonify({"error": str(e)})
+
+@app.route('/api/events')
+def api_events():
+    return jsonify([])
+
+
+@app.route('/api/processes')
+def api_processes():
+    return jsonify(monitor.metrics.get('processes', {}) if monitor.metrics else {})
+
+
+@app.route('/api/status')
+def api_status():
+    return jsonify({
+        "status": "running",
+        "uptime": time.time() - psutil.boot_time(),
+        "collector_active": True,
+        "history_points": len(monitor.history)
+    })
+
 
 if __name__ == '__main__':
-    # Start background update thread
     update_thread_obj = Thread(target=update_thread, daemon=True)
     update_thread_obj.start()
-    
-    # Start Flask app
+
     print("Starting REAPER OS System Dashboard...")
     print("Visit http://localhost:5000 in your browser")
     app.run(debug=False, host='0.0.0.0', port=5000)
+

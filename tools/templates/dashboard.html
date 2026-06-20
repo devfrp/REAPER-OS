@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>REAPER OS Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --bg: #1a1a2e;
+            --card-bg: #16213e;
+            --border: #0f3460;
+            --accent: #e94560;
+            --accent2: #533483;
+            --text: #eee;
+            --dim: #888;
+            --green: #4caf50;
+            --orange: #ff9800;
+            --red: #f44336;
+        }
+        .light {
+            --bg: #f0f2f5;
+            --card-bg: #fff;
+            --border: #d0d5dd;
+            --accent: #667eea;
+            --accent2: #764ba2;
+            --text: #1a1a2e;
+            --dim: #666;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            transition: background 0.3s, color 0.3s;
+        }
+        .header {
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+            padding: 24px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .header h1 { font-size: 1.5rem; font-weight: 700; }
+        .header p { font-size: 0.85rem; opacity: 0.85; }
+        .header-actions { display: flex; gap: 8px; }
+        .btn {
+            padding: 8px 16px;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 6px;
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: background 0.2s;
+        }
+        .btn:hover { background: rgba(255,255,255,0.2); }
+        .container { max-width: 1480px; margin: 0 auto; padding: 24px 32px; }
+        .tabs { display: flex; gap: 4px; margin-bottom: 24px; border-bottom: 2px solid var(--border); }
+        .tab {
+            padding: 10px 20px;
+            background: transparent;
+            border: none;
+            color: var(--dim);
+            cursor: pointer;
+            font-size: 0.9rem;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: color 0.2s, border-color 0.2s;
+        }
+        .tab:hover { color: var(--text); }
+        .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .grid-3 { grid-template-columns: repeat(3, 1fr); }
+        .grid-4 { grid-template-columns: repeat(4, 1fr); }
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid var(--border);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .card h3 { font-size: 0.95rem; color: var(--accent); margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .metric { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.88rem; }
+        .metric:last-child { border-bottom: none; }
+        .metric-label { color: var(--dim); }
+        .metric-value { font-weight: 600; }
+        .progress-wrap { margin-top: 8px; }
+        .progress-bar {
+            width: 100%; height: 8px;
+            background: var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), var(--accent2));
+            transition: width 0.5s ease;
+            border-radius: 4px;
+        }
+        .status-ok { color: var(--green); }
+        .status-warn { color: var(--orange); }
+        .status-err { color: var(--red); }
+        .alert { padding: 10px 14px; border-radius: 6px; margin-bottom: 8px; font-size: 0.85rem; }
+        .alert-warn { background: rgba(255,152,0,0.1); border: 1px solid var(--orange); }
+        .alert-err { background: rgba(244,67,54,0.1); border: 1px solid var(--red); }
+        .chart-wrap { position: relative; height: 180px; }
+        .chart-wrap-lg { height: 280px; }
+        .refresh-time { text-align: center; color: var(--dim); font-size: 0.8rem; margin-top: 24px; }
+        .big-number { font-size: 2.4rem; font-weight: 800; color: var(--accent); }
+        .big-number-label { font-size: 0.8rem; color: var(--dim); text-transform: uppercase; }
+        @media (max-width: 768px) {
+            .grid-3, .grid-4 { grid-template-columns: 1fr; }
+            .container { padding: 16px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <h1>🔊 REAPER OS Dashboard</h1>
+            <p>Real-time System &amp; Audio Monitoring</p>
+        </div>
+        <div class="header-actions">
+            <button class="btn" id="exportBtn">📥 Export Report</button>
+            <button class="btn" id="themeBtn">🌓 Theme</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="tabs">
+            <button class="tab active" data-tab="overview">Overview</button>
+            <button class="tab" data-tab="audio">Audio</button>
+            <button class="tab" data-tab="processes">Processes</button>
+            <button class="tab" data-tab="network">Network</button>
+            <button class="tab" data-tab="history">History</button>
+        </div>
+
+        <div id="tab-overview" class="tab-content active">
+            <div class="grid grid-3">
+                <div class="card">
+                    <h3>CPU</h3>
+                    <div id="cpu-info"></div>
+                    <div class="progress-wrap"><div class="progress-bar"><div class="progress-fill" id="cpu-bar" style="width:0"></div></div></div>
+                    <div class="chart-wrap" style="margin-top:12px"><canvas id="cpu-chart"></canvas></div>
+                </div>
+                <div class="card">
+                    <h3>Memory</h3>
+                    <div id="memory-info"></div>
+                    <div class="progress-wrap"><div class="progress-bar"><div class="progress-fill" id="mem-bar" style="width:0"></div></div></div>
+                    <div class="chart-wrap" style="margin-top:12px"><canvas id="mem-chart"></canvas></div>
+                </div>
+                <div class="card">
+                    <h3>Disk</h3>
+                    <div id="disk-info"></div>
+                    <div class="progress-wrap"><div class="progress-bar"><div class="progress-fill" id="disk-bar" style="width:0"></div></div></div>
+                </div>
+            </div>
+
+            <div class="grid grid-3">
+                <div class="card">
+                    <h3>System Info</h3>
+                    <div id="sys-info"></div>
+                </div>
+                <div class="card">
+                    <h3>System Health</h3>
+                    <div id="health-info"></div>
+                </div>
+                <div class="card">
+                    <h3>GPU</h3>
+                    <div id="gpu-info"><span class="metric-label">Gathering...</span></div>
+                </div>
+            </div>
+
+            <div class="card" style="margin-bottom:20px">
+                <h3>Active Alerts</h3>
+                <div id="alerts-info"><span class="metric-label">No alerts</span></div>
+            </div>
+        </div>
+
+        <div id="tab-audio" class="tab-content">
+            <div class="grid grid-3">
+                <div class="card">
+                    <h3>JACK Server</h3>
+                    <div id="jack-info"></div>
+                </div>
+                <div class="card">
+                    <h3>Audio Devices</h3>
+                    <div id="audio-devices-info"></div>
+                </div>
+                <div class="card">
+                    <h3>ALSA Configuration</h3>
+                    <div id="alsa-info"></div>
+                </div>
+            </div>
+            <div class="card">
+                <h3>DSP / Audio Load</h3>
+                <div id="dsp-info"><span class="metric-label">Requires JACK running</span></div>
+                <div class="chart-wrap-lg" style="margin-top:12px"><canvas id="dsp-chart"></canvas></div>
+            </div>
+        </div>
+
+        <div id="tab-processes" class="tab-content">
+            <div class="grid">
+                <div class="card">
+                    <h3>Top CPU Processes</h3>
+                    <div id="proc-cpu-info"></div>
+                </div>
+                <div class="card">
+                    <h3>Top Memory Processes</h3>
+                    <div id="proc-mem-info"></div>
+                </div>
+                <div class="card">
+                    <h3>Audio Processes</h3>
+                    <div id="proc-audio-info"></div>
+                </div>
+                <div class="card">
+                    <h3>Docker Containers</h3>
+                    <div id="docker-info"><span class="metric-label">Docker not detected</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-network" class="tab-content">
+            <div class="grid grid-3">
+                <div class="card">
+                    <h3>Network Interfaces</h3>
+                    <div id="net-iface-info"></div>
+                </div>
+                <div class="card">
+                    <h3>Bandwidth</h3>
+                    <div id="net-bw-info"></div>
+                </div>
+                <div class="card">
+                    <h3>Active Connections</h3>
+                    <div id="net-conn-info"></div>
+                </div>
+            </div>
+            <div class="card">
+                <h3>Network Audio (Dante/AES67)</h3>
+                <div id="net-audio-info"><span class="metric-label">Not configured</span></div>
+            </div>
+        </div>
+
+        <div id="tab-history" class="tab-content">
+            <div class="card">
+                <h3>24-Hour Resource History</h3>
+                <div class="chart-wrap-lg"><canvas id="history-cpu-chart"></canvas></div>
+            </div>
+            <div class="card">
+                <h3>24-Hour Memory &amp; Disk</h3>
+                <div class="chart-wrap-lg"><canvas id="history-mem-chart"></canvas></div>
+            </div>
+            <div class="card">
+                <h3>Event Log</h3>
+                <div id="event-log" style="max-height:300px;overflow-y:auto">
+                    <span class="metric-label">No events recorded</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="refresh-time">Last update: <span id="update-time">--:--:--</span></div>
+    </div>
+
+    <script>
+        const cpuChart = new Chart(document.getElementById('cpu-chart').getContext('2d'), {
+            type: 'line', data: { labels: [], datasets: [{ label: 'CPU %', data: [], borderColor: '#e94560', tension: 0.3, fill: true, backgroundColor: 'rgba(233,69,96,0.1)', pointRadius: 0 }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: 100, ticks: { color: '#888' } }, x: { display: false } } }
+        });
+        const memChart = new Chart(document.getElementById('mem-chart').getContext('2d'), {
+            type: 'line', data: { labels: [], datasets: [{ label: 'Memory %', data: [], borderColor: '#533483', tension: 0.3, fill: true, backgroundColor: 'rgba(83,52,131,0.1)', pointRadius: 0 }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: 100, ticks: { color: '#888' } }, x: { display: false } } }
+        });
+        const dspChart = new Chart(document.getElementById('dsp-chart').getContext('2d'), {
+            type: 'line', data: { labels: [], datasets: [{ label: 'JACK Load %', data: [], borderColor: '#4caf50', tension: 0.3, fill: true, backgroundColor: 'rgba(76,175,80,0.1)', pointRadius: 0 }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { color: '#888' } }, x: { display: false } } }
+        });
+        const historyCpuChart = new Chart(document.getElementById('history-cpu-chart').getContext('2d'), {
+            type: 'line', data: { labels: [], datasets: [{ label: 'CPU %', data: [], borderColor: '#e94560', tension: 0.2, pointRadius: 0 }, { label: 'Memory %', data: [], borderColor: '#533483', tension: 0.2, pointRadius: 0 }] },
+            options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { color: '#888' } }, x: { ticks: { color: '#888', maxTicksLimit: 12 } } } }
+        });
+        const historyMemChart = new Chart(document.getElementById('history-mem-chart').getContext('2d'), {
+            type: 'line', data: { labels: [], datasets: [{ label: 'Disk %', data: [], borderColor: '#ff9800', tension: 0.2, pointRadius: 0 }, { label: 'Swap %', data: [], borderColor: '#f44336', tension: 0.2, pointRadius: 0 }] },
+            options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { color: '#888' } }, x: { ticks: { color: '#888', maxTicksLimit: 12 } } } }
+        });
+
+        function addChartPoint(chart, label, value, maxLen) {
+            chart.data.labels.push(label);
+            chart.data.datasets[0].data.push(value);
+            if (chart.data.labels.length > maxLen) { chart.data.labels.shift(); chart.data.datasets[0].data.shift(); }
+            chart.update();
+        }
+
+        async function fetchMetrics() {
+            try {
+                const r = await fetch('/api/metrics');
+                return await r.json();
+            } catch(e) { return null; }
+        }
+
+        async function update() {
+            const m = await fetchMetrics();
+            if (!m) return;
+            updateOverview(m);
+            updateAudio(m);
+            updateProcesses(m);
+            updateNetwork(m);
+            updateHistory(m);
+            updateAlerts(m);
+            document.getElementById('update-time').textContent = new Date().toLocaleTimeString();
+        }
+
+        function updateOverview(m) {
+            document.getElementById('cpu-info').innerHTML = `
+                <div class="metric"><span class="metric-label">Usage</span><span class="metric-value">${m.cpu.percent.toFixed(1)}%</span></div>
+                <div class="metric"><span class="metric-label">Cores</span><span class="metric-value">${m.cpu.cores} (${m.cpu.physical_cores || m.cpu.cores} phys)</span></div>
+                <div class="metric"><span class="metric-label">Frequency</span><span class="metric-value">${(m.cpu.freq_mhz || 0).toFixed(0)} MHz</span></div>
+                <div class="metric"><span class="metric-label">Load (1/5/15m)</span><span class="metric-value">${(m.cpu.load_avg||[0,0,0]).map(x=>x.toFixed(2)).join(' / ')}</span></div>
+            `;
+            document.getElementById('cpu-bar').style.width = m.cpu.percent + '%';
+
+            document.getElementById('memory-info').innerHTML = `
+                <div class="metric"><span class="metric-label">RAM</span><span class="metric-value">${m.memory.used_gb.toFixed(1)} / ${m.memory.total_gb.toFixed(1)} GB</span></div>
+                <div class="metric"><span class="metric-label">Percent</span><span class="metric-value">${m.memory.percent.toFixed(1)}%</span></div>
+                <div class="metric"><span class="metric-label">Swap</span><span class="metric-value">${(m.memory.swap_used_gb||0).toFixed(1)} / ${(m.memory.swap_gb||0).toFixed(1)} GB</span></div>
+            `;
+            document.getElementById('mem-bar').style.width = m.memory.percent + '%';
+
+            document.getElementById('disk-info').innerHTML = `
+                <div class="metric"><span class="metric-label">Used</span><span class="metric-value">${m.disk.used_gb.toFixed(1)} / ${m.disk.total_gb.toFixed(1)} GB</span></div>
+                <div class="metric"><span class="metric-label">Free</span><span class="metric-value">${m.disk.free_gb.toFixed(1)} GB</span></div>
+                <div class="metric"><span class="metric-label">Percent</span><span class="metric-value">${m.disk.percent.toFixed(1)}%</span></div>
+            `;
+            document.getElementById('disk-bar').style.width = m.disk.percent + '%';
+
+            document.getElementById('sys-info').innerHTML = `
+                <div class="metric"><span class="metric-label">Uptime</span><span class="metric-value">${Math.floor((m.system.uptime_seconds||0)/3600)}h ${Math.floor(((m.system.uptime_seconds||0)%3600)/60)}m</span></div>
+                <div class="metric"><span class="metric-label">Kernel</span><span class="metric-value">${m.system.kernel||'N/A'}</span></div>
+                <div class="metric"><span class="metric-label">Temperature</span><span class="metric-value">${m.system.temperature ? m.system.temperature+'°C' : 'N/A'}</span></div>
+                <div class="metric"><span class="metric-label">Boot</span><span class="metric-value">${m.system.boot_time||'N/A'}</span></div>
+            `;
+
+            let healthStatus = '<span class="status-ok">Healthy</span>';
+            let healthMsg = 'All systems operational';
+            if (m.cpu.percent > 85) { healthStatus = '<span class="status-err">Critical</span>'; healthMsg = 'CPU overload'; }
+            else if (m.cpu.percent > 70) { healthStatus = '<span class="status-warn">Warning</span>'; healthMsg = 'High CPU usage'; }
+            else if (m.memory.percent > 85) { healthStatus = '<span class="status-err">Critical</span>'; healthMsg = 'Memory exhausted'; }
+            else if (m.memory.percent > 70) { healthStatus = '<span class="status-warn">Warning</span>'; healthMsg = 'High memory usage'; }
+            else if (m.disk.percent > 92) { healthStatus = '<span class="status-err">Critical</span>'; healthMsg = 'Disk almost full'; }
+            document.getElementById('health-info').innerHTML = `
+                <div class="metric"><span class="metric-label">Status</span>${healthStatus}</div>
+                <div class="metric"><span class="metric-label">Message</span><span class="metric-value">${healthMsg}</span></div>
+            `;
+
+            if (m.gpu) {
+                document.getElementById('gpu-info').innerHTML = `
+                    <div class="metric"><span class="metric-label">GPU</span><span class="metric-value">${m.gpu.name||'Unknown'}</span></div>
+                    <div class="metric"><span class="metric-label">Load</span><span class="metric-value">${m.gpu.load!=null?m.gpu.load+'%':'N/A'}</span></div>
+                    <div class="metric"><span class="metric-label">Memory</span><span class="metric-value">${m.gpu.memory_used||'N/A'} / ${m.gpu.memory_total||'N/A'}</span></div>
+                    <div class="metric"><span class="metric-label">Temperature</span><span class="metric-value">${m.gpu.temperature||'N/A'}</span></div>
+                `;
+            }
+
+            const ts = new Date().toLocaleTimeString();
+            addChartPoint(cpuChart, ts, m.cpu.percent, 60);
+            addChartPoint(memChart, ts, m.memory.percent, 60);
+        }
+
+        function updateAudio(m) {
+            const jackStatus = m.audio.jack_running
+                ? '<span class="status-ok">Running</span>'
+                : '<span class="status-warn">Stopped</span>';
+            document.getElementById('jack-info').innerHTML = `
+                <div class="metric"><span class="metric-label">JACK Status</span>${jackStatus}</div>
+                <div class="metric"><span class="metric-label">Latency</span><span class="metric-value">${m.audio.latency_estimate ? m.audio.latency_estimate.toFixed(1)+'ms' : 'N/A'}</span></div>
+                <div class="metric"><span class="metric-label">Sample Rate</span><span class="metric-value">${m.audio.sample_rate||'N/A'}</span></div>
+                <div class="metric"><span class="metric-label">Buffer Size</span><span class="metric-value">${m.audio.buffer_size||'N/A'}</span></div>
+                <div class="metric"><span class="metric-label">Xruns</span><span class="metric-value">${m.audio.xruns != null ? m.audio.xruns : 'N/A'}</span></div>
+                <div class="metric"><span class="metric-label">DSP Load</span><span class="metric-value">${m.audio.dsp_load!=null?m.audio.dsp_load.toFixed(1)+'%':'N/A'}</span></div>
+            `;
+            if (m.audio.dsp_load != null) {
+                addChartPoint(dspChart, new Date().toLocaleTimeString(), m.audio.dsp_load, 60);
+            }
+
+            const devs = (m.audio.devices||[]).map(d => `<div class="metric"><span class="metric-label">${d.name}</span><span class="metric-value">${d.type||'audio'}</span></div>`).join('');
+            document.getElementById('audio-devices-info').innerHTML = devs || '<span class="metric-label">No devices detected</span>';
+
+            document.getElementById('alsa-info').innerHTML = `
+                <div class="metric"><span class="metric-label">Config</span><span class="metric-value">${m.alsa.config_found?'Present':'Missing'}</span></div>
+                <div class="metric"><span class="metric-label">Cards</span><span class="metric-value">${m.alsa.cards||0}</span></div>
+                <div class="metric"><span class="metric-label">Devices</span><span class="metric-value">${m.alsa.devices||0}</span></div>
+            `;
+
+            if (m.audio.dsp_load != null) {
+                document.getElementById('dsp-info').innerHTML = `
+                    <div class="metric"><span class="metric-label">Current DSP Load</span><span class="big-number">${m.audio.dsp_load.toFixed(1)}%</span></div>
+                `;
+            }
+        }
+
+        function updateProcesses(m) {
+            let cpuHtml = '', memHtml = '', audioHtml = '';
+            if (m.processes && m.processes.cpu) {
+                m.processes.cpu.forEach(p => {
+                    cpuHtml += `<div class="metric"><span class="metric-label">${p.name} (${p.pid})</span><span class="metric-value">${p.cpu_percent.toFixed(1)}%</span></div>`;
+                });
+            }
+            if (m.processes && m.processes.memory) {
+                m.processes.memory.forEach(p => {
+                    memHtml += `<div class="metric"><span class="metric-label">${p.name} (${p.pid})</span><span class="metric-value">${p.memory_percent.toFixed(1)}%</span></div>`;
+                });
+            }
+            if (m.processes && m.processes.audio) {
+                m.processes.audio.forEach(p => {
+                    audioHtml += `<div class="metric"><span class="metric-label">${p.name} (${p.pid})</span><span class="metric-value">CPU: ${p.cpu_percent.toFixed(1)}%</span></div>`;
+                });
+            }
+            document.getElementById('proc-cpu-info').innerHTML = cpuHtml || '<span class="metric-label">No data</span>';
+            document.getElementById('proc-mem-info').innerHTML = memHtml || '<span class="metric-label">No data</span>';
+            document.getElementById('proc-audio-info').innerHTML = audioHtml || '<span class="metric-label">No audio processes</span>';
+
+            if (m.docker) {
+                const containers = m.docker.containers||[];
+                document.getElementById('docker-info').innerHTML = containers.length
+                    ? containers.map(c => `<div class="metric"><span class="metric-label">${c.name}</span><span class="metric-value">${c.status}</span></div>`).join('')
+                    : '<span class="metric-label">No containers running</span>';
+            }
+        }
+
+        function updateNetwork(m) {
+            if (m.network && m.network.interfaces) {
+                document.getElementById('net-iface-info').innerHTML = Object.entries(m.network.interfaces).map(([k,v]) =>
+                    `<div class="metric"><span class="metric-label">${k}</span><span class="metric-value ${v.status==='up'?'status-ok':'status-err'}">${v.status} ${v.speed||''}</span></div>`
+                ).join('');
+            }
+            document.getElementById('net-bw-info').innerHTML = `
+                <div class="metric"><span class="metric-label">Sent</span><span class="metric-value">${formatBytes(m.network.bytes_sent||0)}</span></div>
+                <div class="metric"><span class="metric-label">Received</span><span class="metric-value">${formatBytes(m.network.bytes_recv||0)}</span></div>
+                <div class="metric"><span class="metric-label">Packets Sent</span><span class="metric-value">${(m.network.packets_sent||0).toLocaleString()}</span></div>
+                <div class="metric"><span class="metric-label">Packets Recv</span><span class="metric-value">${(m.network.packets_recv||0).toLocaleString()}</span></div>
+            `;
+            document.getElementById('net-conn-info').innerHTML = (m.network.connections||[]).map(c =>
+                `<div class="metric"><span class="metric-label">${c.local}→${c.remote}</span><span class="metric-value">${c.status}</span></div>`
+            ).join('') || '<span class="metric-label">No active connections</span>';
+        }
+
+        function updateHistory(m) {
+            if (m.history && m.history.length) {
+                const labels = m.history.map(h => new Date(h.timestamp).toLocaleTimeString());
+                historyCpuChart.data.labels = labels;
+                historyCpuChart.data.datasets[0].data = m.history.map(h => h.cpu.percent);
+                historyCpuChart.data.datasets[1].data = m.history.map(h => h.memory.percent);
+                historyCpuChart.update();
+                historyMemChart.data.labels = labels;
+                historyMemChart.data.datasets[0].data = m.history.map(h => h.disk.percent);
+                historyMemChart.data.datasets[1].data = m.history.map(h => h.memory.swap_gb > 0 ? (h.memory.swap_used_gb/h.memory.swap_gb*100) : 0);
+                historyMemChart.update();
+            }
+            if (m.events && m.events.length) {
+                document.getElementById('event-log').innerHTML = m.events.slice(-50).reverse().map(e =>
+                    `<div class="metric"><span class="metric-label">${e.time}</span><span class="metric-value">${e.message}</span></div>`
+                ).join('');
+            }
+        }
+
+        function updateAlerts(m) {
+            const alerts = [];
+            if (m.cpu.percent > 80) alerts.push({cls:'alert-warn',msg:`High CPU: ${m.cpu.percent.toFixed(1)}%`});
+            if (m.cpu.percent > 95) alerts.push({cls:'alert-err',msg:`CPU critical: ${m.cpu.percent.toFixed(1)}%`});
+            if (m.memory.percent > 80) alerts.push({cls:'alert-warn',msg:`High memory: ${m.memory.percent.toFixed(1)}%`});
+            if (m.memory.percent > 95) alerts.push({cls:'alert-err',msg:`Memory critical: ${m.memory.percent.toFixed(1)}%`});
+            if (m.disk.percent > 85) alerts.push({cls:'alert-warn',msg:`Disk usage: ${m.disk.percent.toFixed(1)}%`});
+            if (m.disk.percent > 95) alerts.push({cls:'alert-err',msg:`Disk critical: ${m.disk.percent.toFixed(1)}%`});
+            document.getElementById('alerts-info').innerHTML = alerts.length
+                ? alerts.map(a => `<div class="alert ${a.cls}">${a.msg}</div>`).join('')
+                : '<span class="metric-label">All systems normal</span>';
+        }
+
+        function formatBytes(b) { const u=['B','KB','MB','GB','TB']; let i=0; while(b>=1024&&i<4){b/=1024;i++;} return b.toFixed(1)+' '+u[i]; }
+
+        document.querySelectorAll('.tab').forEach(t => {
+            t.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(x => x.classList.remove('active'));
+                t.classList.add('active');
+                document.getElementById('tab-'+t.dataset.tab).classList.add('active');
+            });
+        });
+
+        document.getElementById('themeBtn').addEventListener('click', () => {
+            document.body.classList.toggle('light');
+            localStorage.setItem('reaper-dash-theme', document.body.classList.contains('light') ? 'light' : 'dark');
+        });
+        document.getElementById('exportBtn').addEventListener('click', async () => {
+            await fetch('/api/export', {method:'POST'});
+            window.open('/api/export', '_blank');
+        });
+
+        if (localStorage.getItem('reaper-dash-theme') === 'light') document.body.classList.add('light');
+
+        update();
+        setInterval(update, 3000);
+    </script>
+</body>
+</html>
