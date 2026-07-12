@@ -11,13 +11,13 @@
 <meta property="og:description" content="Professional Linux distribution for music production. REAPER DAW + JACK + Windows VST.">
 <meta property="og:image" content="https://devfrp.github.io/REAPER-OS/og-image.png">
 <meta property="og:url" content="https://devfrp.github.io/REAPER-OS/">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='5' fill='%230d1013'/><path d='M4 22 l3-5 3 8 3-14 3 10 3-6 3 4 3-2 3 5' fill='none' stroke='%23f0a63a' stroke-width='2' stroke-linejoin='round' stroke-linecap='round'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='5' fill='%230d1013'/><path d='M4 22 l3-5 3 8 3-14 3 10 3-6 3 4 3-2 3 5' fill='none' stroke='%239bcc4f' stroke-width='2' stroke-linejoin='round' stroke-linecap='round'/></svg>">
 <style>
   :root{
     /* light: cool datasheet */
     --bg:#eceff2; --panel:#ffffff; --panel2:#f3f5f7; --term:#12161b;
     --line:#d3dae0; --line2:#bcc6cf; --ink:#141a20; --dim:#5c6a76;
-    --amber:#b06f12; --amber-ink:#8a560c; --lock:#2f9e44;
+    --amber:#5d7f16; --amber-ink:#486310; --lock:#2f9e44;
     --grid:#e2e7ec;
     --mono:"SFMono-Regular",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
     --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
@@ -26,18 +26,18 @@
     :root{
       --bg:#0d1013; --panel:#14181d; --panel2:#191f26; --term:#0a0d10;
       --line:#262e37; --line2:#3a4753; --ink:#ccd4da; --dim:#7c8791;
-      --amber:#f0a63a; --amber-ink:#f4b458; --lock:#57c96a; --grid:#1a2027;
+      --amber:#9bcc4f; --amber-ink:#b2dd6e; --lock:#57c96a; --grid:#1a2027;
     }
   }
   :root[data-theme="light"]{
     --bg:#eceff2; --panel:#ffffff; --panel2:#f3f5f7; --term:#12161b;
     --line:#d3dae0; --line2:#bcc6cf; --ink:#141a20; --dim:#5c6a76;
-    --amber:#b06f12; --amber-ink:#8a560c; --lock:#2f9e44; --grid:#e2e7ec;
+    --amber:#5d7f16; --amber-ink:#486310; --lock:#2f9e44; --grid:#e2e7ec;
   }
   :root[data-theme="dark"]{
     --bg:#0d1013; --panel:#14181d; --panel2:#191f26; --term:#0a0d10;
     --line:#262e37; --line2:#3a4753; --ink:#ccd4da; --dim:#7c8791;
-    --amber:#f0a63a; --amber-ink:#f4b458; --lock:#57c96a; --grid:#1a2027;
+    --amber:#9bcc4f; --amber-ink:#b2dd6e; --lock:#57c96a; --grid:#1a2027;
   }
 
   *{box-sizing:border-box}
@@ -477,7 +477,7 @@ sudo dd if=reaper-os-*.iso of=/dev/sdX bs=4M status=progress
     ctx.strokeStyle=css('--grid','#1a2027'); ctx.lineWidth=1;
     for(var x=0;x<w;x+=44){ctx.beginPath();ctx.moveTo(x+.5,0);ctx.lineTo(x+.5,h);ctx.stroke();}
     ctx.beginPath();ctx.moveTo(0,h/2+.5);ctx.lineTo(w,h/2+.5);ctx.stroke();
-    ctx.strokeStyle=css('--amber','#f0a63a'); ctx.lineWidth=2; ctx.lineJoin='round';
+    ctx.strokeStyle=css('--amber','#9bcc4f'); ctx.lineWidth=2; ctx.lineJoin='round';
     ctx.beginPath();
     for(var i=0;i<=w;i+=2){
       var p=i/w*Math.PI*6 + t;
